@@ -6,6 +6,7 @@ from typing import Annotated, cast
 
 import aiosqlite
 from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from starlette.status import (
     HTTP_200_OK,
     HTTP_201_CREATED,
@@ -38,6 +39,18 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(lifespan=lifespan)
+
+# Allow the SvelteKit dev server (and built site) to call this API from the browser.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 api_router = APIRouter(prefix="/api/v1")
 stashes_router = APIRouter(prefix="/stashes")
@@ -107,7 +120,7 @@ async def add_binary_stash(filepath: str, db: DB) -> models.Stash:
     return stash
 
 
-@app.get("/{slug}", status_code=HTTP_200_OK)
+@stashes_router.get("/{slug}", status_code=HTTP_200_OK)
 async def get_stash(slug: str, db: DB) -> models.StashesTextContent:
     stash = await query.get_stash_by_slug(db, slug=slug)
     if stash is None:
