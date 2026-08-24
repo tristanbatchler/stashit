@@ -12,6 +12,7 @@ __all__: collections.abc.Sequence[str] = (
     "create_stash_text_content",
     "get_stash",
     "get_stash_binary_path",
+    "get_stash_by_slug",
     "get_stash_text_content",
     "list_stashes",
 )
@@ -50,11 +51,14 @@ aiosqlite.register_converter("boolean", _convert_bool)
 
 
 GET_STASH: typing.Final[str] = """-- name: GetStash :one
-SELECT id, is_binary, slug, added FROM stashes WHERE ID = ?
+SELECT id, is_binary, slug, added FROM stashes WHERE id = ?
 """
 
 LIST_STASHES: typing.Final[str] = """-- name: ListStashes :many
-SELECT id, is_binary, slug, added FROM stashes ORDER BY added LIMIT ? OFFSET ?
+SELECT id, is_binary, slug, added
+FROM stashes
+ORDER BY added DESC, id DESC
+LIMIT ? OFFSET ?
 """
 
 GET_STASH_TEXT_CONTENT: typing.Final[str] = """-- name: GetStashTextContent :one
@@ -76,6 +80,10 @@ INSERT INTO stashes_text_content (stash_id, content) VALUES (?, ?)
 
 CREATE_STASH_BINARY_PATH: typing.Final[str] = """-- name: CreateStashBinaryPath :exec
 INSERT INTO stashes_binary_paths (stash_id, path) VALUES (?, ?)
+"""
+
+GET_STASH_BY_SLUG: typing.Final[str] = """-- name: GetStashBySlug :one
+SELECT id, is_binary, slug, added FROM stashes WHERE slug = ?
 """
 
 
@@ -162,3 +170,10 @@ async def create_stash_text_content(conn: aiosqlite.Connection, *, stash_id: int
 
 async def create_stash_binary_path(conn: aiosqlite.Connection, *, stash_id: int, path: str) -> None:
     await conn.execute(CREATE_STASH_BINARY_PATH, (stash_id, path))
+
+
+async def get_stash_by_slug(conn: aiosqlite.Connection, *, slug: str) -> models.Stash | None:
+    row = await (await conn.execute(GET_STASH_BY_SLUG, (slug,))).fetchone()
+    if row is None:
+        return None
+    return models.Stash(id_=row[0], is_binary=row[1], slug=row[2], added=row[3])

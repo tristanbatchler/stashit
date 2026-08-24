@@ -1,0 +1,36 @@
+nouns = [
+    "cartman",
+    "john",
+    "table",
+    "beans",
+    "fire",
+    "japan",
+    "door",
+]
+
+verbs = [
+    "kick",
+    "smooch",
+    "sprint",
+    "sing",
+    "jump",
+    "eat",
+    "faint",
+]
+
+adjectives = [
+    "smooth",
+    "cooked",
+    "chopped",
+    "battered",
+    "straight",
+    "bent",
+    "smashed",
+]
+
+adverbs = [
+    "quickly",
+    "softly",
+    "quietly",
+    "loudly",
+]
