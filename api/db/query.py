@@ -6,9 +6,11 @@
 from __future__ import annotations
 
 __all__: collections.abc.Sequence[str] = (
+    "QueryResults",
     "get_stash",
     "get_stash_binary_path",
     "get_stash_text_content",
+    "list_stashes",
 )
 
 import datetime
@@ -18,6 +20,9 @@ import aiosqlite
 
 if typing.TYPE_CHECKING:
     import collections.abc
+    import sqlite3
+
+    type QueryResultsArgsType = int | float | str | memoryview | datetime.date | datetime.time | datetime.datetime | datetime.timedelta | collections.abc.Sequence[QueryResultsArgsType] | None
 
 from db import models
 
@@ -40,6 +45,10 @@ GET_STASH: typing.Final[str] = """-- name: GetStash :one
 SELECT id, is_binary, slug, added FROM stashes WHERE ID = ?
 """
 
+LIST_STASHES: typing.Final[str] = """-- name: ListStashes :many
+SELECT id, is_binary, slug, added FROM stashes ORDER BY added LIMIT ? OFFSET ?
+"""
+
 GET_STASH_TEXT_CONTENT: typing.Final[str] = """-- name: GetStashTextContent :one
 SELECT stash_id, content FROM stashes_text_content WHERE stash_id = ?
 """
@@ -49,11 +58,60 @@ SELECT stash_id, path FROM stashes_binary_paths WHERE stash_id = ?
 """
 
 
+class QueryResults[T]:
+    __slots__ = ("_args", "_conn", "_cursor", "_decode_hook", "_iterator", "_sql")
+
+    def __init__(
+        self,
+        conn: aiosqlite.Connection,
+        sql: str,
+        decode_hook: collections.abc.Callable[[sqlite3.Row], T],
+        *args: QueryResultsArgsType,
+    ) -> None:
+        self._conn = conn
+        self._sql = sql
+        self._decode_hook = decode_hook
+        self._args = args
+        self._cursor: aiosqlite.Cursor | None = None
+        self._iterator: collections.abc.AsyncIterator[sqlite3.Row] | None = None
+
+    def __aiter__(self) -> QueryResults[T]:
+        return self
+
+    def __await__(
+        self,
+    ) -> collections.abc.Generator[None, None, collections.abc.Sequence[T]]:
+        async def _wrapper() -> collections.abc.Sequence[T]:
+            result = await (await self._conn.execute(self._sql, self._args)).fetchall()
+            return [self._decode_hook(row) for row in result]
+
+        return _wrapper().__await__()
+
+    async def __anext__(self) -> T:
+        if self._cursor is None or self._iterator is None:
+            self._cursor: aiosqlite.Cursor | None = await self._conn.execute(self._sql, self._args)
+            self._iterator = self._cursor.__aiter__()
+        try:
+            record = await self._iterator.__anext__()
+        except StopAsyncIteration:
+            self._cursor = None
+            self._iterator = None
+            raise
+        return self._decode_hook(record)
+
+
 async def get_stash(conn: aiosqlite.Connection, *, id_: int) -> models.Stash | None:
     row = await (await conn.execute(GET_STASH, (id_,))).fetchone()
     if row is None:
         return None
     return models.Stash(id_=row[0], is_binary=row[1], slug=row[2], added=row[3])
+
+
+def list_stashes(conn: aiosqlite.Connection, *, limit: int, offset: int) -> QueryResults[models.Stash]:
+    def _decode_hook(row: sqlite3.Row) -> models.Stash:
+        return models.Stash(id_=row[0], is_binary=row[1], slug=row[2], added=row[3])
+
+    return QueryResults(conn, LIST_STASHES, _decode_hook, limit, offset)
 
 
 async def get_stash_text_content(conn: aiosqlite.Connection, *, stash_id: int) -> models.StashesTextContent | None:

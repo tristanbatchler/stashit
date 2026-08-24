@@ -8,6 +8,5 @@ run = "uv run --project api ruff check --fix --select I api"
 sources = ["api/**/*.py"]
 
 [tasks.sqlc]
-dir = "api/db"
-run = "sqlc generate"
+run = "sqlc generate --file api/db/sqlc.yaml"
 sources = ["api/db/*.sql", "api/db/sqlc.yaml"]

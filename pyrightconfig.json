@@ -1,0 +1,11 @@
+{
+    "exclude": [
+        "**/.venv",
+        "api/db/query.py",
+        "api/db/models.py",
+        "api/db/__init__.py"
+    ],
+    "extraPaths": [
+        "api"
+    ]
+}

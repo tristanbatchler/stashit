@@ -25,3 +25,11 @@ build-backend = "uv_build"
 dev = [
     "basedpyright>=1.39.10",
 ]
+
+[tool.ruff]
+exclude = [
+    "db/query.py",
+    "db/models.py",
+    "db/__init__.py",
+]
+
