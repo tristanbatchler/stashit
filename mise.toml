@@ -2,3 +2,7 @@
 uv = "latest"
 python = "3.14"
 node = "24"
+
+[tasks.default]
+run = "uv run --project api ruff check --fix --select I api"
+sources = ["api/**/*.py"]

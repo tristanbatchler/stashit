@@ -1,25 +1,35 @@
-from fastapi import FastAPI
-from pydantic import BaseModel
+import pathlib
+import sqlite3
+from contextlib import asynccontextmanager
+from datetime import datetime, timezone
 
-app = FastAPI()
+import aiosqlite
+from db import ops
+from fastapi import FastAPI, Request
 
-
-class Item(BaseModel):
-    name: str
-    price: float
-    is_offer: bool | None = None
-
-
-@app.get("/")
-async def read_root():
-    return {"Hello": "World"}
+DB_PATH = pathlib.Path(__file__).parent / "stash.db"
 
 
-@app.get("/items/{item_id}")
-async def read_item(item_id: int, q: str | None = None):
-    return {"item_id": item_id, "q": q}
+async def _init_db() -> aiosqlite.Connection:
+    """Create/open the database and run schema."""
+    aiosqlite.register_adapter(
+        datetime,
+        lambda val: val.astimezone(timezone.utc).strftime("%Y-%m-%d %H:%M:%S"),
+    )
+    await ops.create_tables(DB_PATH)
+    return await aiosqlite.connect(DB_PATH, detect_types=sqlite3.PARSE_DECLTYPES)
 
 
-@app.put("/items/{item_id}")
-async def update_item(item_id: int, item: Item):
-    return {"item_name": item.name, "item_id": item_id}
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    db = await _init_db()
+    app.state.db = db
+    yield
+    await db.close()
+
+
+app = FastAPI(lifespan=lifespan)
+
+
+def get_db(request: Request) -> aiosqlite.Connection:
+    return request.app.state.db

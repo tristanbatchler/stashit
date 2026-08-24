@@ -4,6 +4,21 @@ This is a way for me to effortlessly share content between my devices.
 
 I'm sure there are alternatives I can deploy with Docker, but I wanted to make my own.
 
+## Quickstart
+
+I like Mise, so that should be installed and configured on your shell. Then:
+
+```
+mise install
+mise use -g watchexec@latest # installs the file watcher (you only need this once)
+cd api
+uv sync
+uv run fastapi dev
+```
+
+While I'm coding I keep `mise watch` running from the repo root — it watches `api/**/*.py`
+and runs `ruff --fix`.
+
 ## Example
 
 I have a snippet someone sent me on Slack on my work laptop, and I want to use it on my 
