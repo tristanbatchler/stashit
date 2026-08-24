@@ -1,0 +1,26 @@
+[project]
+name = "api"
+version = "0.1.0"
+description = "The backend for Stash It"
+readme = "README.md"
+authors = [
+    { name = "tristanbatchler", email = "info@tbat.me" }
+]
+requires-python = ">=3.14"
+dependencies = [
+    "fastapi[standard]>=0.141.1",
+    "ruff>=0.16.4",
+    "uvicorn>=0.52.4",
+]
+
+[project.scripts]
+api = "api:main"
+
+[build-system]
+requires = ["uv_build>=0.12.5,<0.13.0"]
+build-backend = "uv_build"
+
+[dependency-groups]
+dev = [
+    "basedpyright>=1.39.10",
+]
