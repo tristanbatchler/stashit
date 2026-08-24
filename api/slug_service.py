@@ -1,7 +1,6 @@
 import secrets
 import tomllib
 from enum import StrEnum
-from sys import exit
 from typing import Literal, cast
 
 from lemminflect import (  # pyright: ignore[reportMissingTypeStubs]

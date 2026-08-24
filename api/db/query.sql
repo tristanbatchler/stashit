@@ -23,5 +23,8 @@ INSERT INTO stashes_text_content (stash_id, content) VALUES (?, ?);
 -- name: CreateStashBinaryPath :exec
 INSERT INTO stashes_binary_paths (stash_id, path) VALUES (?, ?);
 
--- name: GetStashBySlug :one
-SELECT id, is_binary, slug, added FROM stashes WHERE slug = ?;
+-- name: CheckSlugExists :one
+SELECT EXISTS(
+    SELECT NULL FROM stashes WHERE slug = ?
+    LIMIT 1
+);

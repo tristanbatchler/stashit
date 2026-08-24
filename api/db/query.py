@@ -7,12 +7,12 @@ from __future__ import annotations
 
 __all__: collections.abc.Sequence[str] = (
     "QueryResults",
+    "check_slug_exists",
     "create_stash",
     "create_stash_binary_path",
     "create_stash_text_content",
     "get_stash",
     "get_stash_binary_path",
-    "get_stash_by_slug",
     "get_stash_text_content",
     "list_stashes",
 )
@@ -82,8 +82,11 @@ CREATE_STASH_BINARY_PATH: typing.Final[str] = """-- name: CreateStashBinaryPath 
 INSERT INTO stashes_binary_paths (stash_id, path) VALUES (?, ?)
 """
 
-GET_STASH_BY_SLUG: typing.Final[str] = """-- name: GetStashBySlug :one
-SELECT id, is_binary, slug, added FROM stashes WHERE slug = ?
+CHECK_SLUG_EXISTS: typing.Final[str] = """-- name: CheckSlugExists :one
+SELECT EXISTS(
+    SELECT NULL FROM stashes WHERE slug = ?
+    LIMIT 1
+)
 """
 
 
@@ -172,8 +175,8 @@ async def create_stash_binary_path(conn: aiosqlite.Connection, *, stash_id: int,
     await conn.execute(CREATE_STASH_BINARY_PATH, (stash_id, path))
 
 
-async def get_stash_by_slug(conn: aiosqlite.Connection, *, slug: str) -> models.Stash | None:
-    row = await (await conn.execute(GET_STASH_BY_SLUG, (slug,))).fetchone()
+async def check_slug_exists(conn: aiosqlite.Connection, *, slug: str) -> bool | None:
+    row = await (await conn.execute(CHECK_SLUG_EXISTS, (slug,))).fetchone()
     if row is None:
         return None
-    return models.Stash(id_=row[0], is_binary=row[1], slug=row[2], added=row[3])
+    return row[0]

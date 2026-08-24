@@ -43,6 +43,22 @@ def get_db(request: Request) -> aiosqlite.Connection:
 DB = Annotated[aiosqlite.Connection, Depends(get_db)]
 
 
+async def get_unique_slug(db: aiosqlite.Connection) -> str:
+    MAX_SLUG_ATTEMPTS = 10
+    for _ in range(MAX_SLUG_ATTEMPTS):
+        proposed = new_slug()
+        exists = await query.check_slug_exists(db, slug=proposed)
+        if exists is None:
+            raise RuntimeError("slug check returned no row")
+
+        if not exists:
+            return proposed
+
+    raise RuntimeError(
+        f"could not generate a unique slug after {MAX_SLUG_ATTEMPTS} attempts"
+    )
+
+
 @app.get("/")
 async def read_root(db: DB):
     return await query.list_stashes(db, limit=5, offset=0)
@@ -50,8 +66,9 @@ async def read_root(db: DB):
 
 @app.post("/text-stash", status_code=HTTP_201_CREATED)
 async def add_text_stash(content: Annotated[str, Body()], db: DB) -> models.Stash:
+    slug = await get_unique_slug(db)
     try:
-        stash = await query.create_stash(db, is_binary=False, slug=new_slug())
+        stash = await query.create_stash(db, is_binary=False, slug=slug)
         if stash is None:
             raise RuntimeError("stash insert returned no row")
         await query.create_stash_text_content(db, stash_id=stash.id_, content=content)
@@ -65,8 +82,9 @@ async def add_text_stash(content: Annotated[str, Body()], db: DB) -> models.Stas
 
 @app.post("/binary-stash", status_code=HTTP_201_CREATED)
 async def add_binary_stash(filepath: Annotated[str, Body()], db: DB) -> models.Stash:
+    slug = await get_unique_slug(db)
     try:
-        stash = await query.create_stash(db, is_binary=True, slug=new_slug())
+        stash = await query.create_stash(db, is_binary=True, slug=slug)
         if stash is None:
             raise RuntimeError("stash insert returned no row")
         await query.create_stash_binary_path(db, stash_id=stash.id_, path=filepath)
