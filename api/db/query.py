@@ -7,16 +7,18 @@ from __future__ import annotations
 
 __all__: collections.abc.Sequence[str] = (
     "QueryResults",
+    "create_stash",
+    "create_stash_binary_path",
+    "create_stash_text_content",
     "get_stash",
     "get_stash_binary_path",
     "get_stash_text_content",
     "list_stashes",
 )
 
+import aiosqlite
 import datetime
 import typing
-
-import aiosqlite
 
 if typing.TYPE_CHECKING:
     import collections.abc
@@ -31,9 +33,15 @@ def _convert_datetime(val: bytes) -> datetime.datetime:
     return datetime.datetime.fromisoformat(val.decode())
 
 
+def _adapt_bool(val: bool) -> int:
+    return int(val)
+
+
 def _convert_bool(val: bytes) -> bool:
     return bool(int(val))
 
+
+aiosqlite.register_adapter(bool, _adapt_bool)
 
 aiosqlite.register_converter("datetime", _convert_datetime)
 aiosqlite.register_converter("timestamp", _convert_datetime)
@@ -55,6 +63,19 @@ SELECT stash_id, content FROM stashes_text_content WHERE stash_id = ?
 
 GET_STASH_BINARY_PATH: typing.Final[str] = """-- name: GetStashBinaryPath :one
 SELECT stash_id, path FROM stashes_binary_paths WHERE stash_id = ?
+"""
+
+CREATE_STASH: typing.Final[str] = """-- name: CreateStash :one
+INSERT INTO stashes (is_binary, slug) VALUES (?, ?)
+RETURNING id, is_binary, slug, added
+"""
+
+CREATE_STASH_TEXT_CONTENT: typing.Final[str] = """-- name: CreateStashTextContent :exec
+INSERT INTO stashes_text_content (stash_id, content) VALUES (?, ?)
+"""
+
+CREATE_STASH_BINARY_PATH: typing.Final[str] = """-- name: CreateStashBinaryPath :exec
+INSERT INTO stashes_binary_paths (stash_id, path) VALUES (?, ?)
 """
 
 
@@ -126,3 +147,18 @@ async def get_stash_binary_path(conn: aiosqlite.Connection, *, stash_id: int) ->
     if row is None:
         return None
     return models.StashesBinaryPath(stash_id=row[0], path=row[1])
+
+
+async def create_stash(conn: aiosqlite.Connection, *, is_binary: bool, slug: str) -> models.Stash | None:
+    row = await (await conn.execute(CREATE_STASH, (is_binary, slug))).fetchone()
+    if row is None:
+        return None
+    return models.Stash(id_=row[0], is_binary=row[1], slug=row[2], added=row[3])
+
+
+async def create_stash_text_content(conn: aiosqlite.Connection, *, stash_id: int, content: str) -> None:
+    await conn.execute(CREATE_STASH_TEXT_CONTENT, (stash_id, content))
+
+
+async def create_stash_binary_path(conn: aiosqlite.Connection, *, stash_id: int, path: str) -> None:
+    await conn.execute(CREATE_STASH_BINARY_PATH, (stash_id, path))

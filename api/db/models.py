@@ -11,9 +11,8 @@ __all__: collections.abc.Sequence[str] = (
 )
 
 import datetime
-import typing
-
 import pydantic
+import typing
 
 if typing.TYPE_CHECKING:
     import collections.abc

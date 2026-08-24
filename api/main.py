@@ -1,13 +1,15 @@
 import pathlib
+import secrets
 import sqlite3
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from typing import Annotated, cast
 
 import aiosqlite
-from fastapi import Depends, FastAPI, Request
+from fastapi import Body, Depends, FastAPI, Request
+from starlette.status import HTTP_201_CREATED
 
-from db import ops, query
+from db import models, ops, query
 
 DB_PATH = pathlib.Path(__file__).parent / "stash.db"
 
@@ -44,3 +46,37 @@ DB = Annotated[aiosqlite.Connection, Depends(get_db)]
 @app.get("/")
 async def read_root(db: DB):
     return await query.list_stashes(db, limit=5, offset=0)
+
+
+def _new_slug() -> str:
+    return secrets.token_urlsafe(6)
+
+
+@app.post("/text-stash", status_code=HTTP_201_CREATED)
+async def add_text_stash(content: Annotated[str, Body()], db: DB) -> models.Stash:
+    try:
+        stash = await query.create_stash(db, is_binary=False, slug=_new_slug())
+        if stash is None:
+            raise RuntimeError("stash insert returned no row")
+        await query.create_stash_text_content(db, stash_id=stash.id_, content=content)
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
+
+    return stash
+
+
+@app.post("/binary-stash", status_code=HTTP_201_CREATED)
+async def add_binary_stash(filepath: Annotated[str, Body()], db: DB) -> models.Stash:
+    try:
+        stash = await query.create_stash(db, is_binary=True, slug=_new_slug())
+        if stash is None:
+            raise RuntimeError("stash insert returned no row")
+        await query.create_stash_binary_path(db, stash_id=stash.id_, path=filepath)
+        await db.commit()
+    except Exception:
+        await db.rollback()
+        raise
+
+    return stash
