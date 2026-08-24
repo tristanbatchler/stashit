@@ -15,13 +15,17 @@
 
 <h1>Stash It</h1>
 
+<p><a href="/slugs/new">Stash new text</a></p>
+
 {#if error}
 	<p>{error}</p>
 {:else}
 	<ul>
 		{#each stashes as stash}
 			<li>
+                <a href="/{stash.slug}">
 				<strong>{stash.slug}</strong>
+                </a>
 				<small>{stash.added}</small>
 			</li>
 		{/each}

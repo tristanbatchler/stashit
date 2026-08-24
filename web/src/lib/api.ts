@@ -24,12 +24,28 @@ export async function getStashes(): Promise<Stash[]> {
     return await response.json();
 }
 
-export async function getTextStash(slug: String): Promise<StashesTextContent> {
-    const response = await fetch(`${API_URL}/stashes/${slug}`)
+export async function getTextStash(slug: string): Promise<StashesTextContent> {
+    const response = await fetch(`${API_URL}/stashes/${encodeURIComponent(slug)}`)
 
     if (!response.ok) {
-        throw new Error(`Failed to fetch stashes: ${response.status} ('${response.statusText}')`);
+        throw new Error(`Failed to fetch stash: ${response.status} ('${response.statusText}')`);
     }
 
     return await response.json();
+}
+
+export async function postTextStash(content: string): Promise<Stash> {
+    const response = await fetch(`${API_URL}/stashes/text`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ content })
+    })
+
+    if (!response.ok) {
+        throw new Error(`Failed to create stash: ${response.status} ('${response.statusText}')`);
+    }
+
+    return await response.json()
 }
