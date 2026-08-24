@@ -6,3 +6,8 @@ node = "24"
 [tasks.default]
 run = "uv run --project api ruff check --fix --select I api"
 sources = ["api/**/*.py"]
+
+[tasks.sqlc]
+dir = "api/db"
+run = "sqlc generate"
+sources = ["api/db/*.sql", "api/db/sqlc.yaml"]
