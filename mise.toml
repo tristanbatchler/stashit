@@ -2,6 +2,7 @@
 uv = "latest"
 python = "3.14"
 node = "24"
+sqlc = "latest"
 
 [tasks.default]
 run = "uv run --project api ruff check --fix --select I api"

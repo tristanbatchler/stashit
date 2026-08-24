@@ -9,6 +9,7 @@ I'm sure there are alternatives I can deploy with Docker, but I wanted to make m
 I like Mise, so that should be installed and configured on your shell. Then:
 
 ```
+mise trust
 mise install
 mise use -g watchexec@latest # installs the file watcher (you only need this once)
 cd api

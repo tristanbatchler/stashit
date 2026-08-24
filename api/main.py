@@ -89,13 +89,13 @@ async def read_root(db: DB):
 
 
 @stashes_router.post("/text", status_code=HTTP_201_CREATED)
-async def add_text_stash(content: str, db: DB) -> models.Stash:
+async def add_text_stash(payload: models.StashesTextContent, db: DB) -> models.Stash:
     slug = await get_unique_slug(db)
     try:
         stash = await query.create_stash(db, is_binary=False, slug=slug)
         if stash is None:
             raise RuntimeError("stash insert returned no row")
-        await query.create_stash_text_content(db, stash_id=stash.id_, content=content)
+        await query.create_stash_text_content(db, stash_id=stash.id_, content=payload.content)
         await db.commit()
     except Exception:
         await db.rollback()

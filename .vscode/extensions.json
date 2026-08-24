@@ -1,3 +1,7 @@
 {
-    "recommendations": ["detachhead.basedpyright"]
+    "recommendations": [
+        "detachhead.basedpyright", 
+        "svelte.svelte-vscode", 
+		"esbenp.prettier-vscode"
+    ]
 }

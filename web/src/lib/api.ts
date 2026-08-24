@@ -35,12 +35,16 @@ export async function getTextStash(slug: string): Promise<StashesTextContent> {
 }
 
 export async function postTextStash(content: string): Promise<Stash> {
+    const payload: StashesTextContent = {
+        stash_id: -1, // throwaway, needs to be passed or FastAPI raises 422
+        content: content,
+    }
     const response = await fetch(`${API_URL}/stashes/text`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ content })
+        body: JSON.stringify(payload),
     })
 
     if (!response.ok) {
