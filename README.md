@@ -16,9 +16,22 @@ uv sync
 uv run fastapi dev
 ```
 
-While I'm coding I keep `mise watch default ::: sqlc` running from the repo root. 
-It will watch for saves on Python and SQL files and run commands to format my Python files 
+While I'm coding I keep `mise watch default ::: sqlc` running from the repo root.
+It will watch for saves on Python and SQL files and run commands to format my Python files
 or generate code from my SQL files accordingly.
+
+## Frontend
+
+The frontend is a SvelteKit app in `web/`. Dependencies are installed with `npm`
+(Mise puts `npm` on my PATH):
+
+```
+cd web
+npm install
+npm run dev -- --open
+```
+
+That starts Vite on http://localhost:5173/.
 
 ## Example
 
