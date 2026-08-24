@@ -13,6 +13,7 @@ __all__: collections.abc.Sequence[str] = (
     "create_stash_text_content",
     "get_stash",
     "get_stash_binary_path",
+    "get_stash_by_slug",
     "get_stash_text_content",
     "list_stashes",
 )
@@ -52,6 +53,10 @@ aiosqlite.register_converter("boolean", _convert_bool)
 
 GET_STASH: typing.Final[str] = """-- name: GetStash :one
 SELECT id, is_binary, slug, added FROM stashes WHERE id = ?
+"""
+
+GET_STASH_BY_SLUG: typing.Final[str] = """-- name: GetStashBySlug :one
+SELECT id, is_binary, slug, added FROM stashes WHERE slug = ?
 """
 
 LIST_STASHES: typing.Final[str] = """-- name: ListStashes :many
@@ -134,6 +139,13 @@ class QueryResults[T]:
 
 async def get_stash(conn: aiosqlite.Connection, *, id_: int) -> models.Stash | None:
     row = await (await conn.execute(GET_STASH, (id_,))).fetchone()
+    if row is None:
+        return None
+    return models.Stash(id_=row[0], is_binary=row[1], slug=row[2], added=row[3])
+
+
+async def get_stash_by_slug(conn: aiosqlite.Connection, *, slug: str) -> models.Stash | None:
+    row = await (await conn.execute(GET_STASH_BY_SLUG, (slug,))).fetchone()
     if row is None:
         return None
     return models.Stash(id_=row[0], is_binary=row[1], slug=row[2], added=row[3])

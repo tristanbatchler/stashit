@@ -5,8 +5,13 @@ from datetime import UTC, datetime
 from typing import Annotated, cast
 
 import aiosqlite
-from fastapi import Body, Depends, FastAPI, Request
-from starlette.status import HTTP_201_CREATED
+from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
+from starlette.status import (
+    HTTP_200_OK,
+    HTTP_201_CREATED,
+    HTTP_404_NOT_FOUND,
+    HTTP_501_NOT_IMPLEMENTED,
+)
 
 from db import models, ops, query
 from slug_service import new_slug
@@ -34,6 +39,12 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+api_router = APIRouter(prefix="/api/v1")
+stashes_router = APIRouter(prefix="/stashes")
+
+api_router.include_router(stashes_router)
+app.include_router(api_router)
+
 
 def get_db(request: Request) -> aiosqlite.Connection:
     app = cast(FastAPI, request.app)
@@ -43,7 +54,7 @@ def get_db(request: Request) -> aiosqlite.Connection:
 DB = Annotated[aiosqlite.Connection, Depends(get_db)]
 
 
-async def get_unique_slug(db: aiosqlite.Connection) -> str:
+async def get_unique_slug(db: DB) -> str:
     MAX_SLUG_ATTEMPTS = 10
     for _ in range(MAX_SLUG_ATTEMPTS):
         proposed = new_slug()
@@ -59,13 +70,13 @@ async def get_unique_slug(db: aiosqlite.Connection) -> str:
     )
 
 
-@app.get("/")
+@stashes_router.get("/")
 async def read_root(db: DB):
     return await query.list_stashes(db, limit=5, offset=0)
 
 
-@app.post("/text-stash", status_code=HTTP_201_CREATED)
-async def add_text_stash(content: Annotated[str, Body()], db: DB) -> models.Stash:
+@stashes_router.post("/text", status_code=HTTP_201_CREATED)
+async def add_text_stash(content: str, db: DB) -> models.Stash:
     slug = await get_unique_slug(db)
     try:
         stash = await query.create_stash(db, is_binary=False, slug=slug)
@@ -80,8 +91,8 @@ async def add_text_stash(content: Annotated[str, Body()], db: DB) -> models.Stas
     return stash
 
 
-@app.post("/binary-stash", status_code=HTTP_201_CREATED)
-async def add_binary_stash(filepath: Annotated[str, Body()], db: DB) -> models.Stash:
+@stashes_router.post("/file", status_code=HTTP_201_CREATED)
+async def add_binary_stash(filepath: str, db: DB) -> models.Stash:
     slug = await get_unique_slug(db)
     try:
         stash = await query.create_stash(db, is_binary=True, slug=slug)
@@ -94,3 +105,19 @@ async def add_binary_stash(filepath: Annotated[str, Body()], db: DB) -> models.S
         raise
 
     return stash
+
+
+@app.get("/{slug}", status_code=HTTP_200_OK)
+async def get_stash(slug: str, db: DB) -> models.StashesTextContent:
+    stash = await query.get_stash_by_slug(db, slug=slug)
+    if stash is None:
+        raise HTTPException(HTTP_404_NOT_FOUND, "Stash does not exist by that slug")
+    if stash.is_binary:
+        raise HTTPException(
+            HTTP_501_NOT_IMPLEMENTED,
+            "This is a valid stash, but we don't know how to show it to you yet.",
+        )
+    content = await query.get_stash_text_content(db, stash_id=stash.id_)
+    if content is None:
+        raise RuntimeError("stash text content select returned no row")
+    return content
