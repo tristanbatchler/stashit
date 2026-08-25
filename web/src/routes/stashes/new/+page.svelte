@@ -10,6 +10,7 @@
 
 <form 
 	method="POST" 
+	enctype="multipart/form-data" 
 	use:enhance={() => {
 		isSubmitting = true;
 		
@@ -22,7 +23,14 @@
 	<fieldset>
 		<label>
 			Stash some text
-			<textarea name="content" autocomplete="off" required></textarea>
+			<textarea name="text" autocomplete="off"></textarea>
+		</label>
+	</fieldset>
+	
+	<fieldset>
+		<label>
+			Or a file...
+			<input name="file" type="file">
 		</label>
 	</fieldset>
 	

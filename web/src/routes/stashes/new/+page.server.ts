@@ -6,28 +6,41 @@ import { resolve } from '$app/paths';
 export const actions: Actions = {
 	default: async ({ request }) => {
 		const formData = await request.formData();
-		const content = formData.get('content');
+		const text = formData.get('text');
+		const file = formData.get('file');
 
-		if (typeof content !== 'string' || content.trim() === '') {
-			return fail(400, {
-				content,
-				message: 'You have to type something to stash it.'
-			});
+		const hasText = typeof text === 'string' && text.trim() !== '';
+		const hasFile = file instanceof File && file.size > 0;
+
+		console.log(`text: ${text}`);
+		console.log(`hasFile: ${hasFile}`);
+
+		if (!hasText && !hasFile) {
+			return fail(422, {message: "You haven't submitted anything for stashing!"});
 		}
 
-		const { data: stash, error } = await addTextStashApiV1StashesTextPost({
-			body: content
-		});
-
-		if (error || !stash) {
-			console.error('Failed to create text stash:', error);
-
-			return fail(500, {
-				content,
-				message: 'Could not create the stash. Please try again.'
-			});
+		if (hasText && hasFile) {
+			return fail(422, {message: "Choose to stash either some text or a file, but not both."})
 		}
 
-		throw redirect(303, resolve('/[slug]', { slug: stash.slug }));
+		if (hasText) {
+			const { data: stash, error } = await addTextStashApiV1StashesTextPost({
+				body: text
+			});
+
+			if (error || !stash) {
+				console.error('Failed to create text stash:', error);
+
+				return fail(500, {message: 'Could not create the stash. Please try again.'});
+			}
+			throw redirect(303, resolve('/[slug]', { slug: stash.slug }));
+		}
+
+		if (hasFile) {
+			console.log("Got a file");
+			return fail(501, {message: "We haven't implemented file stashing... yet."})
+		}
+
+		
 	}
 } satisfies Actions;

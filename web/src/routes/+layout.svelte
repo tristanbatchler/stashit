@@ -11,7 +11,7 @@
 	<link rel="icon" href={favicon} />
 </svelte:head>
 
-<header>
+<header class="container">
 <nav>
   <ul>
     <li><a href="{resolve('/')}"><strong>Stash It!</strong></a></li>
