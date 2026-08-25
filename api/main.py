@@ -1,5 +1,5 @@
 import logging
-from collections.abc import AsyncGenerator, Sequence
+from collections.abc import AsyncGenerator, Awaitable, Callable, Sequence
 from contextlib import asynccontextmanager
 from enum import StrEnum
 from os import getenv
@@ -84,7 +84,12 @@ stashes_router = APIRouter(prefix="/stashes")
 api_router.include_router(stashes_router)
 app.include_router(api_router)
 
+@stashes_router.get("/")
+async def list_stashes(db_conn: DBConn) -> Sequence[models.Stash]:
+    return await query.list_stashes(db_conn, limit=5, offset=0)
+
 MAX_SLUG_ATTEMPTS = 10
+
 async def get_unique_slug(db_conn: DBConn) -> str:
     for _ in range(MAX_SLUG_ATTEMPTS):
         proposed = new_slug()
@@ -100,54 +105,40 @@ async def get_unique_slug(db_conn: DBConn) -> str:
     )
 
 
-
-@stashes_router.post("/text", status_code=HTTP_201_CREATED)
-async def add_text_stash(content: Annotated[str, Body()], db_conn: DBConn) -> models.Stash:
+async def try_with_slug(operation: Callable[[int], Awaitable[None]], is_binary: bool, db_conn: DBConn) -> models.Stash:
     for _ in range(MAX_SLUG_ATTEMPTS):
-        slug = await get_unique_slug(db_conn)
-        try:
-            stash = await query.create_stash(db_conn, is_binary=False, slug=slug)
-            if stash is None:
-                raise RuntimeError("stash insert returned no row")
-            await query.create_stash_text_content(db_conn, stash_id=stash.id_, content=content)
-            await db_conn.commit()
-            return stash
-        except UniqueViolation:
-            await db_conn.rollback()
-            continue
-        except Exception:
-            await db_conn.rollback()
-            raise
-
-
+            slug = await get_unique_slug(db_conn)
+            try:
+                stash = await query.create_stash(db_conn, is_binary=is_binary, slug=slug)
+                if stash is None:
+                    raise RuntimeError("stash insert returned no row")
+                await operation(stash.id_)
+                await db_conn.commit()
+                return stash
+            except UniqueViolation:
+                await db_conn.rollback()
+                continue
+            except Exception:
+                await db_conn.rollback()
+                raise
+    
+    
     raise RuntimeError("too many slug collisions")
 
 
-@stashes_router.get("/")
-async def list_stashes(db_conn: DBConn) -> Sequence[models.Stash]:
-    return await query.list_stashes(db_conn, limit=5, offset=0)
+@stashes_router.post("/text", status_code=HTTP_201_CREATED)
+async def add_text_stash(content: Annotated[str, Body()], db_conn: DBConn) -> models.Stash:
+    async def operation(stash_id: int):
+        await query.create_stash_text_content(db_conn, stash_id=stash_id, content=content)
+    return await try_with_slug(operation, is_binary=False, db_conn=db_conn)
+    
 
 
 @stashes_router.post("/file", status_code=HTTP_201_CREATED)
 async def add_binary_stash(filepath: str, db_conn: DBConn) -> models.Stash:
-    for _ in range(MAX_SLUG_ATTEMPTS):
-        slug = await get_unique_slug(db_conn)
-        try:
-            stash = await query.create_stash(db_conn, is_binary=True, slug=slug)
-            if stash is None:
-                raise RuntimeError("stash insert returned no row")
-            await query.create_stash_binary_path(db_conn, stash_id=stash.id_, file_path=filepath)
-            await db_conn.commit()
-            return stash
-        except UniqueViolation:
-            await db_conn.rollback()
-            continue
-        except Exception:
-            await db_conn.rollback()
-            raise
-
-
-    raise RuntimeError("too many slug collisions")
+    async def operation(stash_id: int):
+        await query.create_stash_binary_path(db_conn, stash_id=stash_id, file_path=filepath)
+    return await try_with_slug(operation, is_binary=True, db_conn=db_conn)
 
 
 

@@ -64,6 +64,24 @@ export type ValidationError = {
     };
 };
 
+export type ListStashesApiV1StashesGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/stashes/';
+};
+
+export type ListStashesApiV1StashesGetResponses = {
+    /**
+     * Response List Stashes Api V1 Stashes  Get
+     *
+     * Successful Response
+     */
+    200: Array<Stash>;
+};
+
+export type ListStashesApiV1StashesGetResponse = ListStashesApiV1StashesGetResponses[keyof ListStashesApiV1StashesGetResponses];
+
 export type AddTextStashApiV1StashesTextPostData = {
     /**
      * Content
@@ -91,24 +109,6 @@ export type AddTextStashApiV1StashesTextPostResponses = {
 };
 
 export type AddTextStashApiV1StashesTextPostResponse = AddTextStashApiV1StashesTextPostResponses[keyof AddTextStashApiV1StashesTextPostResponses];
-
-export type ListStashesApiV1StashesGetData = {
-    body?: never;
-    path?: never;
-    query?: never;
-    url: '/api/v1/stashes/';
-};
-
-export type ListStashesApiV1StashesGetResponses = {
-    /**
-     * Response List Stashes Api V1 Stashes  Get
-     *
-     * Successful Response
-     */
-    200: Array<Stash>;
-};
-
-export type ListStashesApiV1StashesGetResponse = ListStashesApiV1StashesGetResponses[keyof ListStashesApiV1StashesGetResponses];
 
 export type AddBinaryStashApiV1StashesFilePostData = {
     body?: never;
