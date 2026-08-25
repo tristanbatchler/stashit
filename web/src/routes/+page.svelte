@@ -6,7 +6,7 @@
 
 <h1>Stash It</h1>
 
-<p><a href={resolve('/slugs/new')}>Stash new text</a></p>
+<p><a href={resolve('/stashes/new')}>Stash new text</a></p>
 
 <ul>
 	{#each data.stashes as stash (stash.id_)}

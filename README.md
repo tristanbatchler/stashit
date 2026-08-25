@@ -14,8 +14,18 @@ mise install
 mise use -g watchexec@latest # installs the file watcher (you only need this once)
 cd api
 uv sync
-uv run fastapi dev
+uv run fastapi dev # See http://localhost:8000/docs
 ```
+
+And for installing the front-end (SvelteKit app managed with `npm` (installed by Mise)):
+
+```
+cd web # (assuming you are back in the root directory)
+npm install
+npm run dev -- # See http://localhost:5173
+```
+
+## Tooling
 
 While I'm coding I keep 
 
@@ -27,19 +37,6 @@ running from the repo root. It will watch for saves on Python and SQL files and 
 commands to format my Python files or generate code from my SQL files accordingly.
 The FastAPI server *does* need to be running though if I'm running the `web-gen-types` 
 watcher, otherwise it can't access the OpenAPI spec to generate the TypeScript.
-
-## Frontend
-
-The frontend is a SvelteKit app in `web/`. Dependencies are installed with `npm`
-(Mise puts `npm` on my PATH):
-
-```
-cd web
-npm install
-npm run dev -- --open
-```
-
-That starts Vite on http://localhost:5173/.
 
 ## Example
 
