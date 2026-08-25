@@ -6,11 +6,13 @@
 	<header>
 		<h5>{data.slug}</h5>
 	</header>
-	{#await data.streamed.content}
+	{#await data.streamed.response}
 		<section aria-busy="true"></section>
-	{:then content}
-		<pre>{content}</pre>
-	{:catch error}
-		<p>Error: {error}</p>
+	{:then response}
+		{#if response.error}
+			<p>Error: {response.error?.detail || response.error}</p>
+		{:else}
+			<pre>{response.content}</pre>
+		{/if}
 	{/await}
 </section>

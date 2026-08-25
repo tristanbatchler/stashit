@@ -84,6 +84,7 @@ stashes_router = APIRouter(prefix="/stashes")
 api_router.include_router(stashes_router)
 app.include_router(api_router)
 
+
 @stashes_router.get("/")
 async def list_stashes(db_conn: DBConn) -> Sequence[models.Stash]:
     return await query.list_stashes(db_conn, limit=5, offset=0)
@@ -126,17 +127,16 @@ async def add_binary_stash(filepath: str, db_conn: DBConn) -> models.Stash:
 
 
 
-@stashes_router.get("/{slug}", status_code=HTTP_200_OK)
+@stashes_router.get(path="/{slug}", status_code=HTTP_200_OK)
 async def get_stash(slug: str, db_conn: DBConn) -> str:
     stash = await query.get_stash_by_slug(db_conn, slug=slug)
     if stash is None:
-        raise HTTPException(HTTP_404_NOT_FOUND, "Stash does not exist by that slug")
+        raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail="Stash does not exist by that slug")
+        
     if stash.is_binary:
-        raise HTTPException(
-            HTTP_501_NOT_IMPLEMENTED,
-            "This is a valid stash, but we don't know how to show it to you yet.",
-        )
+        raise HTTPException(HTTP_501_NOT_IMPLEMENTED, detail="We don't know how to show it to you yet")
+        
     content = await query.get_stash_text_content(db_conn, stash_id=stash.id_)
     if content is None:
-        raise RuntimeError("stash text content select returned no row")
+        raise RuntimeError("Stash content select returned no rows")
     return content
