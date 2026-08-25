@@ -89,25 +89,9 @@ async def list_stashes(db_conn: DBConn) -> Sequence[models.Stash]:
     return await query.list_stashes(db_conn, limit=5, offset=0)
 
 MAX_SLUG_ATTEMPTS = 10
-
-async def get_unique_slug(db_conn: DBConn) -> str:
-    for _ in range(MAX_SLUG_ATTEMPTS):
-        proposed = new_slug()
-        exists = await query.check_slug_exists(db_conn, slug=proposed)
-        if exists is None:
-            raise RuntimeError("slug check returned no row")
-
-        if not exists:
-            return proposed
-
-    raise RuntimeError(
-        f"could not generate a unique slug after {MAX_SLUG_ATTEMPTS} attempts"
-    )
-
-
 async def try_with_slug(operation: Callable[[int], Awaitable[None]], is_binary: bool, db_conn: DBConn) -> models.Stash:
     for _ in range(MAX_SLUG_ATTEMPTS):
-            slug = await get_unique_slug(db_conn)
+            slug = new_slug()
             try:
                 stash = await query.create_stash(db_conn, is_binary=is_binary, slug=slug)
                 if stash is None:

@@ -1,17 +1,17 @@
 import { error } from '@sveltejs/kit';
 import { getStashApiV1StashesSlugGet } from '$lib/client';
-import type { PageLoad } from './$types';
+import type { PageServerLoad } from './$types';
 
-export const load: PageLoad = ({ params }) => {
+export const load: PageServerLoad = async ({ params }) => {
 	const slug = params.slug;
 
-	// Fire the request immediately, but do NOT await it here so the page loads instantly
 	const contentPromise = getStashApiV1StashesSlugGet({
 		path: { slug }
 	}).then((response) => {
 		if (response.data === undefined || response.error) {
-			error(404, 'Stash not found');
-		}
+			const err = response.error.detail;
+			return err;
+		} // TODO: How TF do I get an error to throw here and be handled nicely by the page?
 		return response.data;
 	});
 
