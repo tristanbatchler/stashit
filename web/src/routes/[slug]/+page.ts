@@ -9,8 +9,8 @@ export const load: PageLoad = async ({params}) => {
 		}
 	});
 
-	if (responseError || data === undefined) {
-		error(500, 'Failed to load stash');
+	if (data === undefined || responseError) {
+		error(404, 'Stash not found');
 	}
 
 	return {
