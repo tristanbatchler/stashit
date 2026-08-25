@@ -20,7 +20,7 @@ uv run fastapi dev
 While I'm coding I keep 
 
 ````
-mise watch default ::: sqlc ::: web-check ::: web-lint
+mise watch default ::: sqlc ::: web-check ::: web-lint ::: web-gen-types
 ```
 
 running from the repo root.
