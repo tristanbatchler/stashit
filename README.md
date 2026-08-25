@@ -19,13 +19,14 @@ uv run fastapi dev
 
 While I'm coding I keep 
 
-````
+```
 mise watch default ::: sqlc ::: web-check ::: web-lint ::: web-gen-types
 ```
 
-running from the repo root.
-It will watch for saves on Python and SQL files and run commands to format my Python files
-or generate code from my SQL files accordingly.
+running from the repo root. It will watch for saves on Python and SQL files and run 
+commands to format my Python files or generate code from my SQL files accordingly.
+The FastAPI server *does* need to be running though if I'm running the `web-gen-types` 
+watcher, otherwise it can't access the OpenAPI spec to generate the TypeScript.
 
 ## Frontend
 
