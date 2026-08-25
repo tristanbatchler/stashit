@@ -20,6 +20,6 @@ CREATE TABLE IF NOT EXISTS stashes_text_content
 CREATE TABLE IF NOT EXISTS stashes_binary_paths
 (
     stash_id INTEGER PRIMARY KEY NOT NULL,
-    path TEXT NOT NULL,
+    file_path TEXT NOT NULL,
     FOREIGN KEY (stash_id) REFERENCES stashes(id) ON DELETE CASCADE
 );

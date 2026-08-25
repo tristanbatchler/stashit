@@ -6,6 +6,8 @@
 from __future__ import annotations
 
 __all__: collections.abc.Sequence[str] = (
+    "GetStashBySlugRow",
+    "GetStashRow",
     "QueryResults",
     "check_slug_exists",
     "create_stash",
@@ -20,6 +22,7 @@ __all__: collections.abc.Sequence[str] = (
 
 import aiosqlite
 import datetime
+import pydantic
 import typing
 
 if typing.TYPE_CHECKING:
@@ -51,12 +54,28 @@ aiosqlite.register_converter("bool", _convert_bool)
 aiosqlite.register_converter("boolean", _convert_bool)
 
 
+class GetStashRow(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
+
+    is_binary: bool
+    slug: str
+    added: datetime.datetime
+
+
+class GetStashBySlugRow(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
+
+    id_: int
+    is_binary: bool
+    added: datetime.datetime
+
+
 GET_STASH: typing.Final[str] = """-- name: GetStash :one
-SELECT id, is_binary, slug, added FROM stashes WHERE id = ?
+SELECT is_binary, slug, added FROM stashes WHERE id = ?
 """
 
 GET_STASH_BY_SLUG: typing.Final[str] = """-- name: GetStashBySlug :one
-SELECT id, is_binary, slug, added FROM stashes WHERE slug = ?
+SELECT id, is_binary, added FROM stashes WHERE slug = ?
 """
 
 LIST_STASHES: typing.Final[str] = """-- name: ListStashes :many
@@ -67,11 +86,11 @@ LIMIT ? OFFSET ?
 """
 
 GET_STASH_TEXT_CONTENT: typing.Final[str] = """-- name: GetStashTextContent :one
-SELECT stash_id, content FROM stashes_text_content WHERE stash_id = ?
+SELECT content FROM stashes_text_content WHERE stash_id = ?
 """
 
 GET_STASH_BINARY_PATH: typing.Final[str] = """-- name: GetStashBinaryPath :one
-SELECT stash_id, path FROM stashes_binary_paths WHERE stash_id = ?
+SELECT file_path FROM stashes_binary_paths WHERE stash_id = ?
 """
 
 CREATE_STASH: typing.Final[str] = """-- name: CreateStash :one
@@ -84,7 +103,7 @@ INSERT INTO stashes_text_content (stash_id, content) VALUES (?, ?)
 """
 
 CREATE_STASH_BINARY_PATH: typing.Final[str] = """-- name: CreateStashBinaryPath :exec
-INSERT INTO stashes_binary_paths (stash_id, path) VALUES (?, ?)
+INSERT INTO stashes_binary_paths (stash_id, file_path) VALUES (?, ?)
 """
 
 CHECK_SLUG_EXISTS: typing.Final[str] = """-- name: CheckSlugExists :one
@@ -137,18 +156,18 @@ class QueryResults[T]:
         return self._decode_hook(record)
 
 
-async def get_stash(conn: aiosqlite.Connection, *, id_: int) -> models.Stash | None:
+async def get_stash(conn: aiosqlite.Connection, *, id_: int) -> GetStashRow | None:
     row = await (await conn.execute(GET_STASH, (id_,))).fetchone()
     if row is None:
         return None
-    return models.Stash(id_=row[0], is_binary=row[1], slug=row[2], added=row[3])
+    return GetStashRow(is_binary=row[0], slug=row[1], added=row[2])
 
 
-async def get_stash_by_slug(conn: aiosqlite.Connection, *, slug: str) -> models.Stash | None:
+async def get_stash_by_slug(conn: aiosqlite.Connection, *, slug: str) -> GetStashBySlugRow | None:
     row = await (await conn.execute(GET_STASH_BY_SLUG, (slug,))).fetchone()
     if row is None:
         return None
-    return models.Stash(id_=row[0], is_binary=row[1], slug=row[2], added=row[3])
+    return GetStashBySlugRow(id_=row[0], is_binary=row[1], added=row[2])
 
 
 def list_stashes(conn: aiosqlite.Connection, *, limit: int, offset: int) -> QueryResults[models.Stash]:
@@ -158,18 +177,18 @@ def list_stashes(conn: aiosqlite.Connection, *, limit: int, offset: int) -> Quer
     return QueryResults(conn, LIST_STASHES, _decode_hook, limit, offset)
 
 
-async def get_stash_text_content(conn: aiosqlite.Connection, *, stash_id: int) -> models.StashesTextContent | None:
+async def get_stash_text_content(conn: aiosqlite.Connection, *, stash_id: int) -> str | None:
     row = await (await conn.execute(GET_STASH_TEXT_CONTENT, (stash_id,))).fetchone()
     if row is None:
         return None
-    return models.StashesTextContent(stash_id=row[0], content=row[1])
+    return row[0]
 
 
-async def get_stash_binary_path(conn: aiosqlite.Connection, *, stash_id: int) -> models.StashesBinaryPath | None:
+async def get_stash_binary_path(conn: aiosqlite.Connection, *, stash_id: int) -> str | None:
     row = await (await conn.execute(GET_STASH_BINARY_PATH, (stash_id,))).fetchone()
     if row is None:
         return None
-    return models.StashesBinaryPath(stash_id=row[0], path=row[1])
+    return row[0]
 
 
 async def create_stash(conn: aiosqlite.Connection, *, is_binary: bool, slug: str) -> models.Stash | None:
@@ -183,8 +202,8 @@ async def create_stash_text_content(conn: aiosqlite.Connection, *, stash_id: int
     await conn.execute(CREATE_STASH_TEXT_CONTENT, (stash_id, content))
 
 
-async def create_stash_binary_path(conn: aiosqlite.Connection, *, stash_id: int, path: str) -> None:
-    await conn.execute(CREATE_STASH_BINARY_PATH, (stash_id, path))
+async def create_stash_binary_path(conn: aiosqlite.Connection, *, stash_id: int, file_path: str) -> None:
+    await conn.execute(CREATE_STASH_BINARY_PATH, (stash_id, file_path))
 
 
 async def check_slug_exists(conn: aiosqlite.Connection, *, slug: str) -> bool | None:

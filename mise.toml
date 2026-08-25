@@ -5,9 +5,21 @@ node = "24"
 sqlc = "latest"
 
 [tasks.default]
-run = "uv run --project api ruff check --fix --select I api"
+run = "uv run --project api ruff check --fix api"
 sources = ["api/**/*.py"]
 
 [tasks.sqlc]
 run = "sqlc generate --file api/db/sqlc.yaml"
 sources = ["api/db/*.sql", "api/db/sqlc.yaml"]
+
+[tasks.web-check]
+run = "npm --prefix web run check"
+sources = ["web/**/*.ts", "web/**/*.svelte", "web/**/*.js"]
+
+[tasks.web-lint]
+run = "npm --prefix web run lint:fix"
+sources = ["web/**/*.ts", "web/**/*.svelte", "web/**/*.js"]
+
+[tasks.web-format]
+run = "npm --prefix web run format"
+sources = ["web/**/*"]

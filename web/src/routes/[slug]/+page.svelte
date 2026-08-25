@@ -13,34 +13,18 @@
 			return;
 		}
 
-		// Reset state before loading the new slug.
-		error = null;
-		content = null;
-
-		let cancelled = false;
-
 		getTextStash(slug)
-			.then((stash) => {
-				if (!cancelled) {
-					content = stash.content;
-				}
+			.then((c) => {
+				content = c;
 			})
 			.catch((reason: unknown) => {
-				if (!cancelled) {
-					error = String(reason);
-				}
+				error = String(reason);
 			});
-
-		return () => {
-			cancelled = true;
-		};
 	});
 </script>
 
 {#if error}
 	<p>{error}</p>
-{:else if content === null}
-	<p>Loading...</p>
 {:else}
 	<pre>{content}</pre>
 {/if}

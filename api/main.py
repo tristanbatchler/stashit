@@ -89,13 +89,13 @@ async def read_root(db: DB):
 
 
 @stashes_router.post("/text", status_code=HTTP_201_CREATED)
-async def add_text_stash(payload: models.StashesTextContent, db: DB) -> models.Stash:
+async def add_text_stash(content: str, db: DB) -> models.Stash:
     slug = await get_unique_slug(db)
     try:
         stash = await query.create_stash(db, is_binary=False, slug=slug)
         if stash is None:
             raise RuntimeError("stash insert returned no row")
-        await query.create_stash_text_content(db, stash_id=stash.id_, content=payload.content)
+        await query.create_stash_text_content(db, stash_id=stash.id_, content=content)
         await db.commit()
     except Exception:
         await db.rollback()
@@ -111,7 +111,7 @@ async def add_binary_stash(filepath: str, db: DB) -> models.Stash:
         stash = await query.create_stash(db, is_binary=True, slug=slug)
         if stash is None:
             raise RuntimeError("stash insert returned no row")
-        await query.create_stash_binary_path(db, stash_id=stash.id_, path=filepath)
+        await query.create_stash_binary_path(db, stash_id=stash.id_, file_path=filepath)
         await db.commit()
     except Exception:
         await db.rollback()
@@ -121,7 +121,7 @@ async def add_binary_stash(filepath: str, db: DB) -> models.Stash:
 
 
 @stashes_router.get("/{slug}", status_code=HTTP_200_OK)
-async def get_stash(slug: str, db: DB) -> models.StashesTextContent:
+async def get_stash(slug: str, db: DB) -> str:
     stash = await query.get_stash_by_slug(db, slug=slug)
     if stash is None:
         raise HTTPException(HTTP_404_NOT_FOUND, "Stash does not exist by that slug")

@@ -31,7 +31,7 @@ class StashesBinaryPath(pydantic.BaseModel):
     model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
 
     stash_id: int
-    path: str
+    file_path: str
 
 
 class StashesTextContent(pydantic.BaseModel):
