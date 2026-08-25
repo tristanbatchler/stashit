@@ -30,8 +30,9 @@ export async function getTextStash(slug: string): Promise<string> {
 }
 
 export async function postTextStash(content: string): Promise<Stash> {
-	const response = await fetch(`${API_URL}/stashes/text?content=${content}`, {
-		method: 'POST'
+	const response = await fetch(`${API_URL}/stashes/text`, {
+		method: 'POST',
+		body: content
 	});
 
 	if (!response.ok) {

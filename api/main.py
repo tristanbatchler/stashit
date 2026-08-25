@@ -5,7 +5,7 @@ from datetime import UTC, datetime
 from typing import Annotated, cast
 
 import aiosqlite
-from fastapi import APIRouter, Depends, FastAPI, HTTPException, Request
+from fastapi import APIRouter, Body, Depends, FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.status import (
     HTTP_200_OK,
@@ -89,7 +89,7 @@ async def read_root(db: DB):
 
 
 @stashes_router.post("/text", status_code=HTTP_201_CREATED)
-async def add_text_stash(content: str, db: DB) -> models.Stash:
+async def add_text_stash(content: Annotated[str, Body()], db: DB) -> models.Stash:
     slug = await get_unique_slug(db)
     try:
         stash = await query.create_stash(db, is_binary=False, slug=slug)
