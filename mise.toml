@@ -23,3 +23,7 @@ sources = ["web/**/*.ts", "web/**/*.svelte", "web/**/*.js"]
 [tasks.web-format]
 run = "npm --prefix web run format"
 sources = ["web/**/*"]
+
+[tasks.web-gen-types]
+run = "npm --prefix web run gen-types"
+sources = ["api/**/*.py", "api/**/*.sql"]

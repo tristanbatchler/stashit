@@ -1,5 +1,6 @@
 import pathlib
 import sqlite3
+from collections.abc import Sequence
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from typing import Annotated, cast
@@ -84,7 +85,7 @@ async def get_unique_slug(db: DB) -> str:
 
 
 @stashes_router.get("/")
-async def read_root(db: DB):
+async def list_stashes(db: DB) -> Sequence[models.Stash]:
     return await query.list_stashes(db, limit=5, offset=0)
 
 

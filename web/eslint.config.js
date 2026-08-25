@@ -32,6 +32,7 @@ export default tseslint.config(
 			'build/**',
 			'dist/**',
 			'node_modules/**',
+			'src/lib/client/**'
 		],
 	},
 );
