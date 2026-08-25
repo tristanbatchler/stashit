@@ -1,6 +1,7 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions } from './$types';
 import { addTextStashApiV1StashesTextPost } from '$lib/client';
+import { resolve } from '$app/paths';
 
 export const actions: Actions = {
 	default: async ({ request }) => {
@@ -27,6 +28,6 @@ export const actions: Actions = {
 			});
 		}
 
-		throw redirect(303, `/${stash.slug}`);
+		throw redirect(303, resolve('/[slug]', { slug: stash.slug }));
 	}
 };
