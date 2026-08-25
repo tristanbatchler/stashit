@@ -6,10 +6,12 @@
 </script>
 
 <form method="POST" use:enhance>
-	<label>
-		Stash some text
-		<textarea name="content" autocomplete="off" required></textarea>
-	</label>
+	<fieldset>
+		<label>
+			Stash some text
+			<textarea name="content" autocomplete="off" required></textarea>
+		</label>
+	</fieldset>
 	<button type="submit">Stash it</button>
 </form>
 
