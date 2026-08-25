@@ -30,4 +30,4 @@ export const actions: Actions = {
 
 		throw redirect(303, resolve('/[slug]', { slug: stash.slug }));
 	}
-};
+} satisfies Actions;

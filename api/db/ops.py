@@ -1,16 +1,19 @@
 import logging
 import pathlib
+from typing import LiteralString, cast
 
-import aiosqlite
+import psycopg
 
-log = logging.getLogger(pathlib.Path(__file__).name)
+file_path = pathlib.Path(__file__)
 
-_DIR = pathlib.Path(__file__).parent
+logger = logging.getLogger(file_path.name)
 
+async def create_tables(db_conn_string: str) -> None: 
+    schema_sql = (file_path.parent / "schema.sql").read_text()
 
-async def create_tables(db_path: pathlib.Path) -> None:
-    schema_sql = (_DIR / "schema.sql").read_text()
-    async with aiosqlite.connect(db_path) as conn:
-        _ = await conn.executescript(schema_sql)
+    async with await psycopg.AsyncConnection.connect(db_conn_string) as conn:
+        async with conn.cursor() as cursor:
+            _ = await cursor.execute(cast(LiteralString, schema_sql))
+
         await conn.commit()
-    log.info(f"db tables ready: {db_path}")
+    logger.info("db tables ready")

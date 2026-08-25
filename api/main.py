@@ -1,13 +1,17 @@
-import pathlib
-import sqlite3
+import logging
 from collections.abc import Sequence
 from contextlib import asynccontextmanager
-from datetime import UTC, datetime
-from typing import Annotated, cast
+from enum import StrEnum
+from os import getenv
+from pathlib import Path
+from sys import exit
+from typing import Annotated
 
-import aiosqlite
-from fastapi import APIRouter, Body, Depends, FastAPI, HTTPException, Request
+from dotenv import load_dotenv
+from fastapi import APIRouter, Body, Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from psycopg import AsyncConnection
+from psycopg_pool import AsyncConnectionPool
 from starlette.status import (
     HTTP_200_OK,
     HTTP_201_CREATED,
@@ -18,28 +22,48 @@ from starlette.status import (
 from db import models, ops, query
 from slug_service import new_slug
 
-DB_PATH = pathlib.Path(__file__).parent / "stash.db"
+logger = logging.getLogger(Path(__file__).name)
 
 
-async def _init_db() -> aiosqlite.Connection:
-    """Create/open the database and run schema."""
-    aiosqlite.register_adapter(
-        datetime,
-        lambda val: val.astimezone(UTC).strftime("%Y-%m-%d %H:%M:%S"),
-    )
-    await ops.create_tables(DB_PATH)
-    return await aiosqlite.connect(DB_PATH, detect_types=sqlite3.PARSE_DECLTYPES)
+class ConfigKey(StrEnum):
+    DB_DATABASE = "DB_DATABASE"
+    DB_USERNAME = "DB_USERNAME"
+    DB_PASSWORD = "DB_PASSWORD"
+    DB_HOST = "DB_HOST"
+    DB_PORT = "DB_PORT"
 
+config: dict[ConfigKey, str] = {}
+
+_ = load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
+
+for config_key in ConfigKey:
+    value = getenv(config_key)
+    if value is None:
+        logger.fatal("Missing configuration key %s", config_key)
+        exit(1)
+
+    config[config_key] = value
+
+
+db_conn_string = f"postgresql://{config[ConfigKey.DB_USERNAME]}:{config[ConfigKey.DB_PASSWORD]}@{config[ConfigKey.DB_HOST]}:{config[ConfigKey.DB_PORT]}/{config[ConfigKey.DB_DATABASE]}"
+db_conn_pool = AsyncConnectionPool(db_conn_string, open=False)
 
 @asynccontextmanager
-async def lifespan(app: FastAPI):
-    db = await _init_db()
-    app.state.db = db
+async def lifespan(_: FastAPI):
+    await ops.create_tables(db_conn_string)
+    await db_conn_pool.open()
     yield
-    await db.close()
+    await db_conn_pool.close()
 
 
-app = FastAPI(lifespan=lifespan)
+app: FastAPI = FastAPI(lifespan=lifespan)
+
+async def get_db_conn():
+    async with db_conn_pool.connection() as conn:
+	    yield conn
+
+
+DBConn = Annotated[AsyncConnection, Depends(get_db_conn)]
 
 # Allow the SvelteKit dev server (and built site) to call this API from the browser.
 app.add_middleware(
@@ -60,19 +84,11 @@ api_router.include_router(stashes_router)
 app.include_router(api_router)
 
 
-def get_db(request: Request) -> aiosqlite.Connection:
-    app = cast(FastAPI, request.app)
-    return cast(aiosqlite.Connection, app.state.db)
-
-
-DB = Annotated[aiosqlite.Connection, Depends(get_db)]
-
-
-async def get_unique_slug(db: DB) -> str:
+async def get_unique_slug(db_conn: DBConn) -> str:
     MAX_SLUG_ATTEMPTS = 10
     for _ in range(MAX_SLUG_ATTEMPTS):
         proposed = new_slug()
-        exists = await query.check_slug_exists(db, slug=proposed)
+        exists = await query.check_slug_exists(db_conn, slug=proposed)
         if exists is None:
             raise RuntimeError("slug check returned no row")
 
@@ -85,45 +101,45 @@ async def get_unique_slug(db: DB) -> str:
 
 
 @stashes_router.get("/")
-async def list_stashes(db: DB) -> Sequence[models.Stash]:
-    return await query.list_stashes(db, limit=5, offset=0)
+async def list_stashes(db_conn: DBConn) -> Sequence[models.Stash]:
+    return await query.list_stashes(db_conn, limit=5, offset=0)
 
 
 @stashes_router.post("/text", status_code=HTTP_201_CREATED)
-async def add_text_stash(content: Annotated[str, Body()], db: DB) -> models.Stash:
-    slug = await get_unique_slug(db)
+async def add_text_stash(content: Annotated[str, Body()], db_conn: DBConn) -> models.Stash:
+    slug = await get_unique_slug(db_conn)
     try:
-        stash = await query.create_stash(db, is_binary=False, slug=slug)
+        stash = await query.create_stash(db_conn, is_binary=False, slug=slug)
         if stash is None:
             raise RuntimeError("stash insert returned no row")
-        await query.create_stash_text_content(db, stash_id=stash.id_, content=content)
-        await db.commit()
+        await query.create_stash_text_content(db_conn, stash_id=stash.id_, content=content)
+        await db_conn.commit()
     except Exception:
-        await db.rollback()
+        await db_conn.rollback()
         raise
 
     return stash
 
 
 @stashes_router.post("/file", status_code=HTTP_201_CREATED)
-async def add_binary_stash(filepath: str, db: DB) -> models.Stash:
-    slug = await get_unique_slug(db)
+async def add_binary_stash(filepath: str, db_conn: DBConn) -> models.Stash:
+    slug = await get_unique_slug(db_conn)
     try:
-        stash = await query.create_stash(db, is_binary=True, slug=slug)
+        stash = await query.create_stash(db_conn, is_binary=True, slug=slug)
         if stash is None:
             raise RuntimeError("stash insert returned no row")
-        await query.create_stash_binary_path(db, stash_id=stash.id_, file_path=filepath)
-        await db.commit()
+        await query.create_stash_binary_path(db_conn, stash_id=stash.id_, file_path=filepath)
+        await db_conn.commit()
     except Exception:
-        await db.rollback()
+        await db_conn.rollback()
         raise
 
     return stash
 
 
 @stashes_router.get("/{slug}", status_code=HTTP_200_OK)
-async def get_stash(slug: str, db: DB) -> str:
-    stash = await query.get_stash_by_slug(db, slug=slug)
+async def get_stash(slug: str, db_conn: DBConn) -> str:
+    stash = await query.get_stash_by_slug(db_conn, slug=slug)
     if stash is None:
         raise HTTPException(HTTP_404_NOT_FOUND, "Stash does not exist by that slug")
     if stash.is_binary:
@@ -131,7 +147,7 @@ async def get_stash(slug: str, db: DB) -> str:
             HTTP_501_NOT_IMPLEMENTED,
             "This is a valid stash, but we don't know how to show it to you yet.",
         )
-    content = await query.get_stash_text_content(db, stash_id=stash.id_)
+    content = await query.get_stash_text_content(db_conn, stash_id=stash.id_)
     if content is None:
         raise RuntimeError("stash text content select returned no row")
     return content

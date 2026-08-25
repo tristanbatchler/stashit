@@ -1,6 +1,7 @@
 import secrets
 import tomllib
 from enum import StrEnum
+from pathlib import Path
 from typing import Literal, cast
 
 from lemminflect import (  # pyright: ignore[reportMissingTypeStubs]
@@ -15,7 +16,9 @@ class WordType(StrEnum):
     ADVERBS = "adverbs"
 
 
-with open("slug_config.toml", "rb") as f:
+_CONFIG_PATH = Path(__file__).parent / "slug_config.toml"
+
+with open(_CONFIG_PATH, "rb") as f:
     data = cast(dict[WordType, list[str]], tomllib.load(f))
 
 

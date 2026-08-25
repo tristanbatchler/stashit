@@ -1,25 +1,23 @@
-PRAGMA foreign_keys = ON;
-
 CREATE TABLE IF NOT EXISTS stashes
 (
-    id INTEGER PRIMARY KEY NOT NULL,
-    is_binary BOOLEAN NOT NULL CHECK (is_binary IN (0, 1)),
-    slug TEXT NOT NULL UNIQUE,
-    added TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+    id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    is_binary  BOOLEAN NOT NULL,
+    slug       TEXT NOT NULL UNIQUE,
+    added      TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE INDEX IF NOT EXISTS idx_stashes_added ON stashes (added);
 
 CREATE TABLE IF NOT EXISTS stashes_text_content
 (
-    stash_id INTEGER PRIMARY KEY NOT NULL,
-    content TEXT NOT NULL,
-    FOREIGN KEY (stash_id) REFERENCES stashes(id) ON DELETE CASCADE
+    stash_id  BIGINT PRIMARY KEY
+              REFERENCES stashes (id) ON DELETE CASCADE,
+    content   TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS stashes_binary_paths
 (
-    stash_id INTEGER PRIMARY KEY NOT NULL,
-    file_path TEXT NOT NULL,
-    FOREIGN KEY (stash_id) REFERENCES stashes(id) ON DELETE CASCADE
+    stash_id  BIGINT PRIMARY KEY
+              REFERENCES stashes (id) ON DELETE CASCADE,
+    file_path TEXT NOT NULL
 );
