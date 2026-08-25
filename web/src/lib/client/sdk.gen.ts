@@ -19,11 +19,6 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
 };
 
 /**
- * List Stashes
- */
-export const listStashesApiV1StashesGet = <ThrowOnError extends boolean = false>(options?: Options<ListStashesApiV1StashesGetData, ThrowOnError>): RequestResult<ListStashesApiV1StashesGetResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListStashesApiV1StashesGetResponses, unknown, ThrowOnError>({ url: '/api/v1/stashes/', ...options });
-
-/**
  * Add Text Stash
  */
 export const addTextStashApiV1StashesTextPost = <ThrowOnError extends boolean = false>(options: Options<AddTextStashApiV1StashesTextPostData, ThrowOnError>): RequestResult<AddTextStashApiV1StashesTextPostResponses, AddTextStashApiV1StashesTextPostErrors, ThrowOnError> => (options.client ?? client).post<AddTextStashApiV1StashesTextPostResponses, AddTextStashApiV1StashesTextPostErrors, ThrowOnError>({
@@ -34,6 +29,11 @@ export const addTextStashApiV1StashesTextPost = <ThrowOnError extends boolean = 
         ...options.headers
     }
 });
+
+/**
+ * List Stashes
+ */
+export const listStashesApiV1StashesGet = <ThrowOnError extends boolean = false>(options?: Options<ListStashesApiV1StashesGetData, ThrowOnError>): RequestResult<ListStashesApiV1StashesGetResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListStashesApiV1StashesGetResponses, unknown, ThrowOnError>({ url: '/api/v1/stashes/', ...options });
 
 /**
  * Add Binary Stash

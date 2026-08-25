@@ -1,5 +1,5 @@
 import logging
-from collections.abc import Sequence
+from collections.abc import AsyncGenerator, Sequence
 from contextlib import asynccontextmanager
 from enum import StrEnum
 from os import getenv
@@ -11,6 +11,7 @@ from dotenv import load_dotenv
 from fastapi import APIRouter, Body, Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from psycopg import AsyncConnection
+from psycopg.errors import UniqueViolation
 from psycopg_pool import AsyncConnectionPool
 from starlette.status import (
     HTTP_200_OK,
@@ -49,7 +50,7 @@ db_conn_string = f"postgresql://{config[ConfigKey.DB_USERNAME]}:{config[ConfigKe
 db_conn_pool = AsyncConnectionPool(db_conn_string, open=False)
 
 @asynccontextmanager
-async def lifespan(_: FastAPI):
+async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
     await ops.create_tables(db_conn_string)
     await db_conn_pool.open()
     yield
@@ -58,7 +59,7 @@ async def lifespan(_: FastAPI):
 
 app: FastAPI = FastAPI(lifespan=lifespan)
 
-async def get_db_conn():
+async def get_db_conn() -> AsyncGenerator[AsyncConnection]:
     async with db_conn_pool.connection() as conn:
 	    yield conn
 
@@ -83,9 +84,8 @@ stashes_router = APIRouter(prefix="/stashes")
 api_router.include_router(stashes_router)
 app.include_router(api_router)
 
-
+MAX_SLUG_ATTEMPTS = 10
 async def get_unique_slug(db_conn: DBConn) -> str:
-    MAX_SLUG_ATTEMPTS = 10
     for _ in range(MAX_SLUG_ATTEMPTS):
         proposed = new_slug()
         exists = await query.check_slug_exists(db_conn, slug=proposed)
@@ -100,41 +100,55 @@ async def get_unique_slug(db_conn: DBConn) -> str:
     )
 
 
+
+@stashes_router.post("/text", status_code=HTTP_201_CREATED)
+async def add_text_stash(content: Annotated[str, Body()], db_conn: DBConn) -> models.Stash:
+    for _ in range(MAX_SLUG_ATTEMPTS):
+        slug = await get_unique_slug(db_conn)
+        try:
+            stash = await query.create_stash(db_conn, is_binary=False, slug=slug)
+            if stash is None:
+                raise RuntimeError("stash insert returned no row")
+            await query.create_stash_text_content(db_conn, stash_id=stash.id_, content=content)
+            await db_conn.commit()
+            return stash
+        except UniqueViolation:
+            await db_conn.rollback()
+            continue
+        except Exception:
+            await db_conn.rollback()
+            raise
+
+
+    raise RuntimeError("too many slug collisions")
+
+
 @stashes_router.get("/")
 async def list_stashes(db_conn: DBConn) -> Sequence[models.Stash]:
     return await query.list_stashes(db_conn, limit=5, offset=0)
 
 
-@stashes_router.post("/text", status_code=HTTP_201_CREATED)
-async def add_text_stash(content: Annotated[str, Body()], db_conn: DBConn) -> models.Stash:
-    slug = await get_unique_slug(db_conn)
-    try:
-        stash = await query.create_stash(db_conn, is_binary=False, slug=slug)
-        if stash is None:
-            raise RuntimeError("stash insert returned no row")
-        await query.create_stash_text_content(db_conn, stash_id=stash.id_, content=content)
-        await db_conn.commit()
-    except Exception:
-        await db_conn.rollback()
-        raise
-
-    return stash
-
-
 @stashes_router.post("/file", status_code=HTTP_201_CREATED)
 async def add_binary_stash(filepath: str, db_conn: DBConn) -> models.Stash:
-    slug = await get_unique_slug(db_conn)
-    try:
-        stash = await query.create_stash(db_conn, is_binary=True, slug=slug)
-        if stash is None:
-            raise RuntimeError("stash insert returned no row")
-        await query.create_stash_binary_path(db_conn, stash_id=stash.id_, file_path=filepath)
-        await db_conn.commit()
-    except Exception:
-        await db_conn.rollback()
-        raise
+    for _ in range(MAX_SLUG_ATTEMPTS):
+        slug = await get_unique_slug(db_conn)
+        try:
+            stash = await query.create_stash(db_conn, is_binary=True, slug=slug)
+            if stash is None:
+                raise RuntimeError("stash insert returned no row")
+            await query.create_stash_binary_path(db_conn, stash_id=stash.id_, file_path=filepath)
+            await db_conn.commit()
+            return stash
+        except UniqueViolation:
+            await db_conn.rollback()
+            continue
+        except Exception:
+            await db_conn.rollback()
+            raise
 
-    return stash
+
+    raise RuntimeError("too many slug collisions")
+
 
 
 @stashes_router.get("/{slug}", status_code=HTTP_200_OK)
