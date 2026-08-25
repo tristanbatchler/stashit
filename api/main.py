@@ -13,10 +13,12 @@ from fastapi.middleware.cors import CORSMiddleware
 from psycopg import AsyncConnection
 from psycopg.errors import UniqueViolation
 from psycopg_pool import AsyncConnectionPool
+from pydantic import BaseModel
 from starlette.status import (
     HTTP_200_OK,
     HTTP_201_CREATED,
     HTTP_404_NOT_FOUND,
+    HTTP_500_INTERNAL_SERVER_ERROR,
     HTTP_501_NOT_IMPLEMENTED,
 )
 
@@ -78,14 +80,18 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-api_router = APIRouter(prefix="/api/v1")
+class Message(BaseModel):
+    detail: str
+
+
+api_router = APIRouter(prefix="/api/v1", responses={HTTP_500_INTERNAL_SERVER_ERROR: {"model": Message}})
 stashes_router = APIRouter(prefix="/stashes")
 
 api_router.include_router(stashes_router)
 app.include_router(api_router)
 
 
-@stashes_router.get("/")
+@stashes_router.get("/", status_code=HTTP_200_OK, response_model=Sequence[models.Stash])
 async def list_stashes(db_conn: DBConn) -> Sequence[models.Stash]:
     return await query.list_stashes(db_conn, limit=5, offset=0)
 
@@ -108,10 +114,10 @@ async def try_with_slug(operation: Callable[[int], Awaitable[None]], is_binary: 
                 raise
     
     
-    raise RuntimeError("too many slug collisions")
+    raise HTTPException(HTTP_500_INTERNAL_SERVER_ERROR, "Could not generate a unique slug")
 
 
-@stashes_router.post("/text", status_code=HTTP_201_CREATED)
+@stashes_router.post("/text", status_code=HTTP_201_CREATED, response_model=models.Stash)
 async def add_text_stash(content: Annotated[str, Body()], db_conn: DBConn) -> models.Stash:
     async def operation(stash_id: int):
         await query.create_stash_text_content(db_conn, stash_id=stash_id, content=content)
@@ -119,7 +125,7 @@ async def add_text_stash(content: Annotated[str, Body()], db_conn: DBConn) -> mo
     
 
 
-@stashes_router.post("/file", status_code=HTTP_201_CREATED)
+@stashes_router.post("/file", status_code=HTTP_201_CREATED, response_model=models.Stash)
 async def add_binary_stash(filepath: str, db_conn: DBConn) -> models.Stash:
     async def operation(stash_id: int):
         await query.create_stash_binary_path(db_conn, stash_id=stash_id, file_path=filepath)
@@ -127,7 +133,7 @@ async def add_binary_stash(filepath: str, db_conn: DBConn) -> models.Stash:
 
 
 
-@stashes_router.get(path="/{slug}", status_code=HTTP_200_OK)
+@stashes_router.get(path="/{slug}", status_code=HTTP_200_OK, response_model=str, responses={HTTP_404_NOT_FOUND: {"model": Message}, HTTP_501_NOT_IMPLEMENTED: {"model": Message}})
 async def get_stash(slug: str, db_conn: DBConn) -> str:
     stash = await query.get_stash_by_slug(db_conn, slug=slug)
     if stash is None:

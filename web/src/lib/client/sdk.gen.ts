@@ -2,7 +2,7 @@
 
 import type { Client, ClientMeta, Options as Options2, RequestResult, TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddBinaryStashApiV1StashesFilePostData, AddBinaryStashApiV1StashesFilePostErrors, AddBinaryStashApiV1StashesFilePostResponses, AddTextStashApiV1StashesTextPostData, AddTextStashApiV1StashesTextPostErrors, AddTextStashApiV1StashesTextPostResponses, GetStashApiV1StashesSlugGetData, GetStashApiV1StashesSlugGetErrors, GetStashApiV1StashesSlugGetResponses, ListStashesApiV1StashesGetData, ListStashesApiV1StashesGetResponses } from './types.gen';
+import type { AddBinaryStashApiV1StashesFilePostData, AddBinaryStashApiV1StashesFilePostErrors, AddBinaryStashApiV1StashesFilePostResponses, AddTextStashApiV1StashesTextPostData, AddTextStashApiV1StashesTextPostErrors, AddTextStashApiV1StashesTextPostResponses, GetStashApiV1StashesSlugGetData, GetStashApiV1StashesSlugGetErrors, GetStashApiV1StashesSlugGetResponses, ListStashesApiV1StashesGetData, ListStashesApiV1StashesGetErrors, ListStashesApiV1StashesGetResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -21,7 +21,7 @@ export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends 
 /**
  * List Stashes
  */
-export const listStashesApiV1StashesGet = <ThrowOnError extends boolean = false>(options?: Options<ListStashesApiV1StashesGetData, ThrowOnError>): RequestResult<ListStashesApiV1StashesGetResponses, unknown, ThrowOnError> => (options?.client ?? client).get<ListStashesApiV1StashesGetResponses, unknown, ThrowOnError>({ url: '/api/v1/stashes/', ...options });
+export const listStashesApiV1StashesGet = <ThrowOnError extends boolean = false>(options?: Options<ListStashesApiV1StashesGetData, ThrowOnError>): RequestResult<ListStashesApiV1StashesGetResponses, ListStashesApiV1StashesGetErrors, ThrowOnError> => (options?.client ?? client).get<ListStashesApiV1StashesGetResponses, ListStashesApiV1StashesGetErrors, ThrowOnError>({ url: '/api/v1/stashes/', ...options });
 
 /**
  * Add Text Stash

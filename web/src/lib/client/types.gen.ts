@@ -15,6 +15,16 @@ export type HttpValidationError = {
 };
 
 /**
+ * Message
+ */
+export type Message = {
+    /**
+     * Detail
+     */
+    detail: string;
+};
+
+/**
  * Stash
  */
 export type Stash = {
@@ -71,6 +81,15 @@ export type ListStashesApiV1StashesGetData = {
     url: '/api/v1/stashes/';
 };
 
+export type ListStashesApiV1StashesGetErrors = {
+    /**
+     * Internal Server Error
+     */
+    500: Message;
+};
+
+export type ListStashesApiV1StashesGetError = ListStashesApiV1StashesGetErrors[keyof ListStashesApiV1StashesGetErrors];
+
 export type ListStashesApiV1StashesGetResponses = {
     /**
      * Response List Stashes Api V1 Stashes  Get
@@ -97,6 +116,10 @@ export type AddTextStashApiV1StashesTextPostErrors = {
      * Validation Error
      */
     422: HttpValidationError;
+    /**
+     * Internal Server Error
+     */
+    500: Message;
 };
 
 export type AddTextStashApiV1StashesTextPostError = AddTextStashApiV1StashesTextPostErrors[keyof AddTextStashApiV1StashesTextPostErrors];
@@ -127,6 +150,10 @@ export type AddBinaryStashApiV1StashesFilePostErrors = {
      * Validation Error
      */
     422: HttpValidationError;
+    /**
+     * Internal Server Error
+     */
+    500: Message;
 };
 
 export type AddBinaryStashApiV1StashesFilePostError = AddBinaryStashApiV1StashesFilePostErrors[keyof AddBinaryStashApiV1StashesFilePostErrors];
@@ -154,9 +181,21 @@ export type GetStashApiV1StashesSlugGetData = {
 
 export type GetStashApiV1StashesSlugGetErrors = {
     /**
+     * Not Found
+     */
+    404: Message;
+    /**
      * Validation Error
      */
     422: HttpValidationError;
+    /**
+     * Internal Server Error
+     */
+    500: Message;
+    /**
+     * Not Implemented
+     */
+    501: Message;
 };
 
 export type GetStashApiV1StashesSlugGetError = GetStashApiV1StashesSlugGetErrors[keyof GetStashApiV1StashesSlugGetErrors];

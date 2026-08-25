@@ -6,17 +6,21 @@
 
 {#await data.streamed.stashes}
 	<section aria-busy="true"></section>
-{:then stashes}
-	<section>
-		<ul>
-			{#each stashes as stash (stash.id_)}
-				<li>
-					<a href={resolve('/[slug]', { slug: stash.slug })}>
-						<strong>{stash.slug}</strong>
-					</a>
-					<small>{stash.added}</small>
-				</li>
-			{/each}
-		</ul>
-	</section>
+{:then response}
+	{#if response.error}
+		<p>Error: {response.error?.detail || response.error}</p>
+	{:else}
+		<section>
+			<ul>
+				{#each response.content as stash (stash.id_)}
+					<li>
+						<a href={resolve('/[slug]', { slug: stash.slug })}>
+							<strong>{stash.slug}</strong>
+						</a>
+						<small>{stash.added}</small>
+					</li>
+				{/each}
+			</ul>
+		</section>
+	{/if}
 {/await}
