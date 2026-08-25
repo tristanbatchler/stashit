@@ -1,6 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions } from './$types';
-import { addTextStashApiV1StashesTextPost } from '$lib/client';
+import { addTextStashApiV1StashesTextPost, type Stash } from '$lib/client';
 
 export const actions: Actions = {
 	default: async ({ request }) => {
