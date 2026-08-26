@@ -110,20 +110,16 @@ async def list_stashes(page: int, take: int, db_conn: DBConn) -> Sequence[models
 MAX_SLUG_ATTEMPTS = 10
 async def try_with_slug(operation: Callable[[int], Awaitable[None]], is_binary: bool, db_conn: DBConn) -> models.Stash:
     for _ in range(MAX_SLUG_ATTEMPTS):
-            slug = new_slug()
-            try:
+        slug = new_slug()
+        try:
+            async with db_conn.transaction():
                 stash = await query.create_stash(db_conn, is_binary=is_binary, slug=slug)
                 if stash is None:
                     raise RuntimeError("stash insert returned no row")
                 await operation(stash.id_)
-                await db_conn.commit()
                 return stash
-            except UniqueViolation:
-                await db_conn.rollback()
-                continue
-            except Exception:
-                await db_conn.rollback()
-                raise
+        except UniqueViolation:
+            continue
     
     
     raise HTTPException(HTTP_500_INTERNAL_SERVER_ERROR, "Could not generate a unique slug")
