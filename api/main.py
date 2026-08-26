@@ -46,6 +46,7 @@ class ConfigKey(StrEnum):
     DB_PASSWORD = "DB_PASSWORD"
     DB_HOST = "DB_HOST"
     DB_PORT = "DB_PORT"
+    APP_BASE_URL = "APP_BASE_URL"
 
 config: dict[ConfigKey, str] = {}
 
@@ -84,8 +85,7 @@ DBConn = Annotated[AsyncConnection, Depends(get_db_conn)]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
+        config[ConfigKey.APP_BASE_URL]
     ],
     allow_credentials=True,
     allow_methods=["*"],
