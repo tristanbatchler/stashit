@@ -146,20 +146,21 @@ async def add_binary_stash(file: UploadFile, db_conn: DBConn) -> models.Stash:
         if file.size in (None, 0):
             raise HTTPException(HTTP_422_UNPROCESSABLE_CONTENT, "The uploaded file is empty or corrupted")
 
+
         uuid = uuid4().hex
         unique_folder = uploads_dir / uuid
         unique_folder.mkdir(parents=True, exist_ok=True)
-        destination = unique_folder / file.filename
+        
+        sanitized_filename = Path(file.filename).name
+        destination = unique_folder / sanitized_filename
 
-        # with open(destination, "wb") as buffer:
-        #     copyfileobj(file.file, buffer)
         bytes_written = 0
         async with aiofiles.open(destination, "wb") as buffer:
             while chunk := await file.read(1024 * 64):
                 _ = await buffer.write(chunk)
                 bytes_written += len(chunk)
-                progress = (bytes_written / file.size) * 100
-                logger.info(f"file progress: {progress:.2f}%")
+                #progress = (bytes_written / file.size) * 100
+                # TODO: It'd be nice to stream the progress back to the client...
 
         async def operation(stash_id: int):
             await query.create_stash_binary_path(db_conn, stash_id=stash_id, file_path=str(destination))

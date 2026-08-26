@@ -2,7 +2,7 @@ import secrets
 import tomllib
 from enum import StrEnum
 from pathlib import Path
-from typing import Literal, cast
+from typing import cast
 
 from lemminflect import (  # pyright: ignore[reportMissingTypeStubs]
     getInflection,  # pyright: ignore[reportUnknownVariableType]
@@ -16,6 +16,15 @@ class WordType(StrEnum):
     ADVERBS = "adverbs"
 
 
+# Nerd shit
+class VerbInflection(StrEnum):
+    EATS = "VBZ"
+    EAT = "VBP"
+    EATEN = "VBN"
+    EATING = "VBG"
+    ATE = "VBD"
+
+
 _CONFIG_PATH = Path(__file__).parent / "slug_config.toml"
 
 with open(_CONFIG_PATH, "rb") as f:
@@ -26,85 +35,77 @@ def choose(key: WordType) -> str:
     return secrets.choice(data[key])
 
 
-def inflect_verb(verb: str, tag: Literal["VBZ", "VBD"]) -> str:
+def inflect_verb(verb: str, tag: VerbInflection) -> str:
     inflections = getInflection(verb, tag=tag)  # pyright: ignore[reportUnknownVariableType]
     if inflections:
         return cast(str, inflections[0])
     return verb
 
+def randomly_inflect_and_prepend_verb(verb: str) -> str:
+    tag = secrets.choice(list(VerbInflection))
+    new_verb = inflect_verb(verb, tag)
+    
+    match tag:
+        case VerbInflection.ATE:
+            prefix = None
+        case VerbInflection.EAT:
+            prefix = "will"
+        case VerbInflection.EATEN:
+            prefix = secrets.choice(("had", "has"))
+        case VerbInflection.EATING:
+            prefix = secrets.choice(("was", "is"))
+        case VerbInflection.EATS:
+            prefix = None
+        case _:  # pyright: ignore[reportUnnecessaryComparison]
+            raise NotImplementedError("Not covering all verb inflection tags")  # pyright: ignore[reportUnreachable]
+
+    if prefix is None:
+        return new_verb
+
+    return f"{prefix} {new_verb}"
 
 def new_slug() -> str:
-    noun = choose(WordType.NOUNS)
-    adjective = choose(WordType.ADJECTIVES)
-    adverb = choose(WordType.ADVERBS)
-    verb = choose(WordType.VERBS)
+    # Load some up to work with
+
+    nouns = [choose(WordType.NOUNS) for _ in range(5)]
+    adjectives = [choose(WordType.ADJECTIVES) for _ in range(5)]
+    adverbs = [choose(WordType.ADVERBS) for _ in range(5)]
+    verbs = [
+        randomly_inflect_and_prepend_verb(choose(WordType.VERBS))
+        for _ in range(5)
+    ]
 
     templates = (
-        # Adverb + adjective + noun + verb
-        lambda: (
-            adverb,
-            adjective,
-            noun,
-            inflect_verb(verb, "VBZ"),
-        ),
-        # Adjective + noun + verb + adverb
-        lambda: (
-            adjective,
-            noun,
-            inflect_verb(verb, "VBZ"),
-            adverb,
-        ),
-        # Adjective + noun + verb + noun
-        lambda: (
-            adjective,
-            noun,
-            inflect_verb(verb, "VBZ"),
-            choose(WordType.NOUNS),
-        ),
-        # Adverb + adjective + noun + verb + adverb
-        lambda: (
-            adverb,
-            adjective,
-            noun,
-            inflect_verb(verb, "VBZ"),
-            choose(WordType.ADVERBS),
-        ),
-        # Adverb + adjective + noun + verb + noun
-        lambda: (
-            adverb,
-            adjective,
-            noun,
-            inflect_verb(verb, "VBZ"),
-            choose(WordType.NOUNS),
-        ),
-        # Adjective + noun + past verb + adverb
-        lambda: (
-            adjective,
-            noun,
-            inflect_verb(verb, "VBD"),
-            adverb,
-        ),
-        # Adjective + noun + past verb + noun
-        lambda: (
-            adjective,
-            noun,
-            inflect_verb(verb, "VBD"),
-            choose(WordType.NOUNS),
-        ),
+        (adverbs[0], adjectives[0], nouns[0], verbs[0]),
+        (adjectives[0], nouns[0], verbs[0]),
+        (nouns[0], verbs[0], adverbs[0]),
+        (nouns[0], verbs[0], nouns[1]),
+        (nouns[0], verbs[0], adjectives[0], nouns[1]),
+        (nouns[0], verbs[0], "and", nouns[1], verbs[1]) # Removed trailing space
     )
 
-    words = secrets.choice(templates)()
-    return "".join(word.capitalize() for word in words)
+    raw_words = secrets.choice(templates)
+    
+    # Process each segment: split by spaces to handle helper prefixes correctly
+    slug_parts: list[str] = []
+    for segment in raw_words:
+        for word in segment.split():
+            slug_parts.append(word.capitalize())
+
+    return "".join(slug_parts)
 
 
 if __name__ == "__main__":
-    for key, words in data.items():
-        print(f"{key}: {len(words)} words")
+    for _ in range(100):
+        print(new_slug())
 
-    seen: set[str] = set()
+    # for key, words in data.items():
+    #     print(f"{key}: {len(words)} words")
 
-    for _ in range(100_000):
-        seen.add(new_slug())
+    # seen: set[str] = set()
 
-    print(f"Unique: {len(seen):,}")
-    print(f"Collisions: {100_000 - len(seen):,}")
+    # for _ in range(100_000):
+    #     seen.add(new_slug())
+
+    # print(f"Unique: {len(seen):,}")
+    # print(f"Collisions: {100_000 - len(seen):,}")
