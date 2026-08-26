@@ -221,7 +221,7 @@ export type GetFileStashApiV1StashesFileSlugGetError = GetFileStashApiV1StashesF
 
 export type GetFileStashApiV1StashesFileSlugGetResponses = {
     /**
-     * Binary file
+     * Successful Response
      */
     200: Blob | File;
 };

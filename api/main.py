@@ -172,17 +172,7 @@ async def add_binary_stash(file: UploadFile, db_conn: DBConn) -> models.Stash:
     finally:
         await file.close()
 
-@stashes_router.get("/file/{slug}", status_code=HTTP_200_OK, response_class=FileResponse, responses={
-    HTTP_404_NOT_FOUND: {"model": Message},
-    HTTP_200_OK: {
-            "description": "Binary file", 
-            "content": {
-                "application/octet-stream": {
-                    "schema": {"type": "string", "format": "binary"},
-                }
-            }
-        },
-})
+@stashes_router.get("/file/{slug}", status_code=HTTP_200_OK, response_class=FileResponse, responses={HTTP_404_NOT_FOUND: {"model": Message}, HTTP_200_OK: {"content": {"application/octet-stream": {}}}})
 async def get_file_stash(slug: str, db_conn: DBConn) -> FileResponse:
     stash = await query.get_stash_by_slug(db_conn, slug=slug)
     if stash is None:
