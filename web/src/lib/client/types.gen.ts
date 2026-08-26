@@ -5,6 +5,34 @@ export type ClientOptions = {
 };
 
 /**
+ * Body_add_binary_stash_api_v1_stashes_file_post
+ */
+export type BodyAddBinaryStashApiV1StashesFilePost = {
+    /**
+     * File
+     */
+    file: Blob | File;
+};
+
+/**
+ * GetStashBySlugRow
+ */
+export type GetStashBySlugRow = {
+    /**
+     * Id
+     */
+    id_: number;
+    /**
+     * Is Binary
+     */
+    is_binary: boolean;
+    /**
+     * Added
+     */
+    added: string;
+};
+
+/**
  * HTTPValidationError
  */
 export type HttpValidationError = {
@@ -134,22 +162,17 @@ export type AddTextStashApiV1StashesTextPostResponses = {
 export type AddTextStashApiV1StashesTextPostResponse = AddTextStashApiV1StashesTextPostResponses[keyof AddTextStashApiV1StashesTextPostResponses];
 
 export type AddBinaryStashApiV1StashesFilePostData = {
-    body?: never;
+    body: BodyAddBinaryStashApiV1StashesFilePost;
     path?: never;
-    query: {
-        /**
-         * Filepath
-         */
-        filepath: string;
-    };
+    query?: never;
     url: '/api/v1/stashes/file';
 };
 
 export type AddBinaryStashApiV1StashesFilePostErrors = {
     /**
-     * Validation Error
+     * Unprocessable Content
      */
-    422: HttpValidationError;
+    422: Message;
     /**
      * Internal Server Error
      */
@@ -167,7 +190,7 @@ export type AddBinaryStashApiV1StashesFilePostResponses = {
 
 export type AddBinaryStashApiV1StashesFilePostResponse = AddBinaryStashApiV1StashesFilePostResponses[keyof AddBinaryStashApiV1StashesFilePostResponses];
 
-export type GetStashApiV1StashesSlugGetData = {
+export type GetFileStashApiV1StashesFileSlugGetData = {
     body?: never;
     path: {
         /**
@@ -176,10 +199,10 @@ export type GetStashApiV1StashesSlugGetData = {
         slug: string;
     };
     query?: never;
-    url: '/api/v1/stashes/{slug}';
+    url: '/api/v1/stashes/file/{slug}';
 };
 
-export type GetStashApiV1StashesSlugGetErrors = {
+export type GetFileStashApiV1StashesFileSlugGetErrors = {
     /**
      * Not Found
      */
@@ -192,21 +215,93 @@ export type GetStashApiV1StashesSlugGetErrors = {
      * Internal Server Error
      */
     500: Message;
-    /**
-     * Not Implemented
-     */
-    501: Message;
 };
 
-export type GetStashApiV1StashesSlugGetError = GetStashApiV1StashesSlugGetErrors[keyof GetStashApiV1StashesSlugGetErrors];
+export type GetFileStashApiV1StashesFileSlugGetError = GetFileStashApiV1StashesFileSlugGetErrors[keyof GetFileStashApiV1StashesFileSlugGetErrors];
 
-export type GetStashApiV1StashesSlugGetResponses = {
+export type GetFileStashApiV1StashesFileSlugGetResponses = {
     /**
-     * Response Get Stash Api V1 Stashes  Slug  Get
+     * Binary file
+     */
+    200: Blob | File;
+};
+
+export type GetFileStashApiV1StashesFileSlugGetResponse = GetFileStashApiV1StashesFileSlugGetResponses[keyof GetFileStashApiV1StashesFileSlugGetResponses];
+
+export type GetTextStashApiV1StashesTextSlugGetData = {
+    body?: never;
+    path: {
+        /**
+         * Slug
+         */
+        slug: string;
+    };
+    query?: never;
+    url: '/api/v1/stashes/text/{slug}';
+};
+
+export type GetTextStashApiV1StashesTextSlugGetErrors = {
+    /**
+     * Not Found
+     */
+    404: Message;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+    /**
+     * Internal Server Error
+     */
+    500: Message;
+};
+
+export type GetTextStashApiV1StashesTextSlugGetError = GetTextStashApiV1StashesTextSlugGetErrors[keyof GetTextStashApiV1StashesTextSlugGetErrors];
+
+export type GetTextStashApiV1StashesTextSlugGetResponses = {
+    /**
+     * Response Get Text Stash Api V1 Stashes Text  Slug  Get
      *
      * Successful Response
      */
     200: string;
 };
 
-export type GetStashApiV1StashesSlugGetResponse = GetStashApiV1StashesSlugGetResponses[keyof GetStashApiV1StashesSlugGetResponses];
+export type GetTextStashApiV1StashesTextSlugGetResponse = GetTextStashApiV1StashesTextSlugGetResponses[keyof GetTextStashApiV1StashesTextSlugGetResponses];
+
+export type GetStashMetadataApiV1StashesMetadataSlugGetData = {
+    body?: never;
+    path: {
+        /**
+         * Slug
+         */
+        slug: string;
+    };
+    query?: never;
+    url: '/api/v1/stashes/metadata/{slug}';
+};
+
+export type GetStashMetadataApiV1StashesMetadataSlugGetErrors = {
+    /**
+     * Not Found
+     */
+    404: Message;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+    /**
+     * Internal Server Error
+     */
+    500: Message;
+};
+
+export type GetStashMetadataApiV1StashesMetadataSlugGetError = GetStashMetadataApiV1StashesMetadataSlugGetErrors[keyof GetStashMetadataApiV1StashesMetadataSlugGetErrors];
+
+export type GetStashMetadataApiV1StashesMetadataSlugGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: GetStashBySlugRow;
+};
+
+export type GetStashMetadataApiV1StashesMetadataSlugGetResponse = GetStashMetadataApiV1StashesMetadataSlugGetResponses[keyof GetStashMetadataApiV1StashesMetadataSlugGetResponses];

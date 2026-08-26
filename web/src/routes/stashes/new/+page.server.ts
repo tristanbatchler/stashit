@@ -1,6 +1,6 @@
 import { fail, redirect } from '@sveltejs/kit';
 import type { Actions } from './$types';
-import { addTextStashApiV1StashesTextPost } from '$lib/client';
+import { addBinaryStashApiV1StashesFilePost, addTextStashApiV1StashesTextPost } from '$lib/client';
 import { resolve } from '$app/paths';
 
 export const actions: Actions = {
@@ -38,7 +38,16 @@ export const actions: Actions = {
 
 		if (hasFile) {
 			console.log("Got a file");
-			return fail(501, {message: "We haven't implemented file stashing... yet."})
+			const { data: stash, error } = await addBinaryStashApiV1StashesFilePost({
+				body: {file}
+			})
+
+			if (error || !stash) {
+				console.error('Failed to create file stash:', error);
+
+				return fail(500, {message: 'Could not create the stash. Please try again.'});
+			}
+			throw redirect(303, resolve('/[slug]', { slug: stash.slug }));
 		}
 
 		

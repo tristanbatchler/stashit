@@ -6,10 +6,20 @@ from os import getenv
 from pathlib import Path
 from sys import exit
 from typing import Annotated
+from uuid import uuid4
 
+import aiofiles
 from dotenv import load_dotenv
-from fastapi import APIRouter, Body, Depends, FastAPI, HTTPException
+from fastapi import (
+    APIRouter,
+    Body,
+    Depends,
+    FastAPI,
+    HTTPException,
+    UploadFile,
+)
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from psycopg import AsyncConnection
 from psycopg.errors import UniqueViolation
 from psycopg_pool import AsyncConnectionPool
@@ -17,12 +27,14 @@ from pydantic import BaseModel
 from starlette.status import (
     HTTP_200_OK,
     HTTP_201_CREATED,
+    HTTP_400_BAD_REQUEST,
     HTTP_404_NOT_FOUND,
+    HTTP_422_UNPROCESSABLE_CONTENT,
     HTTP_500_INTERNAL_SERVER_ERROR,
-    HTTP_501_NOT_IMPLEMENTED,
 )
 
 from db import models, ops, query
+from db.query import GetStashBySlugRow
 from slug_service import new_slug
 
 logger = logging.getLogger(Path(__file__).name)
@@ -125,24 +137,97 @@ async def add_text_stash(content: Annotated[str, Body()], db_conn: DBConn) -> mo
     
 
 
-@stashes_router.post("/file", status_code=HTTP_201_CREATED, response_model=models.Stash)
-async def add_binary_stash(filepath: str, db_conn: DBConn) -> models.Stash:
-    async def operation(stash_id: int):
-        await query.create_stash_binary_path(db_conn, stash_id=stash_id, file_path=filepath)
-    return await try_with_slug(operation, is_binary=True, db_conn=db_conn)
+@stashes_router.post("/file", status_code=HTTP_201_CREATED, response_model=models.Stash, responses={HTTP_422_UNPROCESSABLE_CONTENT: {"model": Message}})
+async def add_binary_stash(file: UploadFile, db_conn: DBConn) -> models.Stash:
 
+    try:
+        uploads_dir = Path(__file__).parent / "uploads"
+        uploads_dir.mkdir(exist_ok=True)
 
+        if file.filename is None:
+            raise HTTPException(HTTP_422_UNPROCESSABLE_CONTENT, "The uploaded file must have a valid filename")
 
-@stashes_router.get(path="/{slug}", status_code=HTTP_200_OK, response_model=str, responses={HTTP_404_NOT_FOUND: {"model": Message}, HTTP_501_NOT_IMPLEMENTED: {"model": Message}})
-async def get_stash(slug: str, db_conn: DBConn) -> str:
+        if file.size in (None, 0):
+            raise HTTPException(HTTP_422_UNPROCESSABLE_CONTENT, "The uploaded file is empty or corrupted")
+
+        uuid = uuid4().hex
+        unique_folder = uploads_dir / uuid
+        unique_folder.mkdir(parents=True, exist_ok=True)
+        destination = unique_folder / file.filename
+
+        # with open(destination, "wb") as buffer:
+        #     copyfileobj(file.file, buffer)
+        bytes_written = 0
+        async with aiofiles.open(destination, "wb") as buffer:
+            while chunk := await file.read(1024 * 64):
+                _ = await buffer.write(chunk)
+                bytes_written += len(chunk)
+                progress = (bytes_written / file.size) * 100
+                logger.info(f"file progress: {progress:.2f}%")
+
+        async def operation(stash_id: int):
+            await query.create_stash_binary_path(db_conn, stash_id=stash_id, file_path=str(destination))
+        return await try_with_slug(operation, is_binary=True, db_conn=db_conn)
+
+    finally:
+        await file.close()
+
+@stashes_router.get("/file/{slug}", status_code=HTTP_200_OK, response_class=FileResponse, responses={
+    HTTP_404_NOT_FOUND: {"model": Message},
+    HTTP_200_OK: {
+            "description": "Binary file", 
+            "content": {
+                "application/octet-stream": {
+                    "schema": {"type": "string", "format": "binary"},
+                }
+            }
+        },
+})
+async def get_file_stash(slug: str, db_conn: DBConn) -> FileResponse:
     stash = await query.get_stash_by_slug(db_conn, slug=slug)
     if stash is None:
         raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail="Stash does not exist by that slug")
-        
+
+    if not stash.is_binary:
+        raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail="This is a text stash")
+
+    file_path = await query.get_stash_binary_path(db_conn, stash_id=stash.id_)
+    if file_path is None:
+        raise RuntimeError("Stash binary path select returned no rows")
+
+    path = Path(file_path)
+    if not path.is_file():
+        logger.error("Missing file on disk for stash %s: %s", slug, path)
+        raise HTTPException(
+            status_code=HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Stored file is missing",
+        )
+
+    return FileResponse(
+        path,
+        filename=path.name,
+    )
+
+
+@stashes_router.get("/text/{slug}", status_code=HTTP_200_OK, response_model=str, responses={HTTP_404_NOT_FOUND: {"model": Message}})
+async def get_text_stash(slug: str, db_conn: DBConn) -> str:
+    stash = await query.get_stash_by_slug(db_conn, slug=slug)
+    if stash is None:
+        raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail="Stash does not exist by that slug")
+
     if stash.is_binary:
-        raise HTTPException(HTTP_501_NOT_IMPLEMENTED, detail="We don't know how to show it to you yet")
-        
+        raise HTTPException(status_code=HTTP_400_BAD_REQUEST, detail="This is a binary stash")
+
     content = await query.get_stash_text_content(db_conn, stash_id=stash.id_)
     if content is None:
         raise RuntimeError("Stash content select returned no rows")
     return content
+
+
+@stashes_router.get("/metadata/{slug}", status_code=HTTP_200_OK, response_model=GetStashBySlugRow, responses={HTTP_404_NOT_FOUND: {"model": Message}})
+async def get_stash_metadata(slug: str, db_conn: DBConn) -> GetStashBySlugRow:
+    stash = await query.get_stash_by_slug(db_conn, slug=slug)
+    if stash is None:
+        raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail="Stash does not exist by that slug")
+    
+    return stash

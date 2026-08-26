@@ -1,18 +1,19 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
+
 	let { data } = $props();
 </script>
 
-<section >
+<section>
 	<header>
 		<h5>{data.slug}</h5>
 	</header>
-	{#await data.streamed.response}
-		<section aria-busy="true"></section>
-	{:then response}
-		{#if response.error}
-			<p>Error: {response.error?.detail || response.error}</p>
-		{:else}
-			<pre>{response.content}</pre>
-		{/if}
-	{/await}
+
+	{#if data.isBinary}
+		<p>
+			<a href={resolve('/[slug]/download', {slug: data.slug})}>Download file</a>
+		</p>
+	{:else}
+		<pre>{data.content}</pre>
+	{/if}
 </section>
