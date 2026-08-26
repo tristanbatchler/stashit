@@ -5,22 +5,52 @@
 </script>
 
 {#await data.streamed.stashes}
-	<section aria-busy="true"></section>
+	<section aria-busy="true">
+		Loading stashes...
+	</section>
 {:then response}
 	{#if response.error}
 		<p>Error: {response.error?.detail || response.error}</p>
 	{:else}
-		<section>
-			<ul>
-				{#each response.content as stash (stash.id_)}
-					<li>
-						<a href={resolve('/[slug]', { slug: stash.slug })}>
-							<strong>{stash.slug}</strong>
-						</a>
-						<small>{stash.added}</small>
-					</li>
+		<table>
+			<thead>
+				<tr>
+					<th scope="col">Unique ID</th>
+					<th scope="col">Type</th>
+					<th scope="col">Added</th>
+				</tr>
+			</thead>
+			<tbody>
+				{#each response.stashes as stash (stash.id_)}
+					<tr>
+						<th scope="row">
+							<a href={resolve('/[slug]', { slug: stash.slug })}>{stash.slug}</a>
+						</th>
+						<td>{stash.is_binary ? 'File' : 'Text'}</td>
+						<td>{stash.added}</td>
+					</tr>
+				{:else}
+					<tr>
+						<td colspan="3">No stashes yet.</td>
+					</tr>
 				{/each}
+			</tbody>
+		</table>
+
+		<nav aria-label="Pagination">
+			<ul>
+				{#if data.page > 1}
+					<li>
+						<a href={resolve(`/?page=${data.page - 1}`)}>Previous</a>
+					</li>
+				{/if}
+				<li><span>Page {data.page}</span></li>
+				{#if response.hasNext}
+					<li>
+						<a href={resolve(`/?page=${data.page + 1}`)}>Nek</a>
+					</li>
+				{/if}
 			</ul>
-		</section>
+		</nav>
 	{/if}
 {/await}

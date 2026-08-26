@@ -104,8 +104,8 @@ app.include_router(api_router)
 
 
 @stashes_router.get("/", status_code=HTTP_200_OK, response_model=Sequence[models.Stash])
-async def list_stashes(db_conn: DBConn) -> Sequence[models.Stash]:
-    return await query.list_stashes(db_conn, limit=5, offset=0)
+async def list_stashes(page: int, take: int, db_conn: DBConn) -> Sequence[models.Stash]:
+    return await query.list_stashes(db_conn, limit=take, offset=(page-1) * take)
 
 MAX_SLUG_ATTEMPTS = 10
 async def try_with_slug(operation: Callable[[int], Awaitable[None]], is_binary: bool, db_conn: DBConn) -> models.Stash:

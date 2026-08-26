@@ -105,11 +105,24 @@ export type ValidationError = {
 export type ListStashesApiV1StashesGetData = {
     body?: never;
     path?: never;
-    query?: never;
+    query: {
+        /**
+         * Page
+         */
+        page: number;
+        /**
+         * Take
+         */
+        take: number;
+    };
     url: '/api/v1/stashes/';
 };
 
 export type ListStashesApiV1StashesGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
     /**
      * Internal Server Error
      */
