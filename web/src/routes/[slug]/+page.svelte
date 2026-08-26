@@ -1,7 +1,10 @@
 <script lang="ts">
+	import { page } from '$app/state';
 	import { resolve } from '$app/paths';
+	import QRCode from '@castlenine/svelte-qrcode';
 
 	let { data } = $props();
+	let pageUrl = $derived(page.url.href)
 </script>
 
 <section>
@@ -16,4 +19,9 @@
 	{:else}
 		<pre>{data.content}</pre>
 	{/if}
+
+	<section>
+		<h6>Share</h6>
+		<QRCode data={pageUrl} />
+	</section>
 </section>
