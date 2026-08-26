@@ -6,17 +6,26 @@
 from __future__ import annotations
 
 __all__: collections.abc.Sequence[str] = (
+    "GetActiveStashLockoutRow",
     "GetStashBySlugRow",
     "GetStashRow",
     "QueryResults",
     "check_slug_exists",
     "create_stash",
     "create_stash_binary_path",
+    "create_stash_lockout",
+    "create_stash_password_attempt",
     "create_stash_text_content",
+    "create_stash_view",
+    "get_active_stash_lockout",
     "get_stash",
     "get_stash_binary_path",
     "get_stash_by_slug",
     "get_stash_text_content",
+    "get_stash_unique_views",
+    "get_stash_unique_views_by_slug",
+    "get_stash_views",
+    "get_stash_views_by_slug",
     "list_stashes",
 )
 
@@ -42,6 +51,12 @@ class GetStashRow(pydantic.BaseModel):
     is_binary: bool
     slug: str
     added: datetime.datetime
+    added_by_ip: str
+    expires_at: datetime.datetime | None
+    one_time_view: bool
+    password_hash: str | None
+    revoked_at: datetime.datetime | None
+    revoked_by_ip: str | None
 
 
 class GetStashBySlugRow(pydantic.BaseModel):
@@ -50,22 +65,54 @@ class GetStashBySlugRow(pydantic.BaseModel):
     id_: int
     is_binary: bool
     added: datetime.datetime
+    added_by_ip: str
+    expires_at: datetime.datetime | None
+    one_time_view: bool
+    password_hash: str | None
+    revoked_at: datetime.datetime | None
+    revoked_by_ip: str | None
+
+
+class GetActiveStashLockoutRow(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
+
+    id_: int
+    added: datetime.datetime
+    expires: datetime.datetime
 
 
 GET_STASH: typing.Final[typing.LiteralString] = """-- name: GetStash :one
-SELECT is_binary, slug, added
+SELECT
+    is_binary,
+    slug,
+    added,
+    added_by_ip,
+    expires_at,
+    one_time_view,
+    password_hash,
+    revoked_at,
+    revoked_by_ip
 FROM stashes
 WHERE id = %(p1)s
 """
 
 GET_STASH_BY_SLUG: typing.Final[typing.LiteralString] = """-- name: GetStashBySlug :one
-SELECT id, is_binary, added
+SELECT
+    id,
+    is_binary,
+    added,
+    added_by_ip,
+    expires_at,
+    one_time_view,
+    password_hash,
+    revoked_at,
+    revoked_by_ip
 FROM stashes
 WHERE slug = %(p1)s
 """
 
 LIST_STASHES: typing.Final[typing.LiteralString] = """-- name: ListStashes :many
-SELECT id, is_binary, slug, added
+SELECT id, is_binary, slug, added, added_by_ip, expires_at, one_time_view, password_hash, revoked_at, revoked_by_ip 
 FROM stashes
 ORDER BY added DESC, id DESC
 LIMIT %(p1)s OFFSET %(p2)s
@@ -84,9 +131,9 @@ WHERE stash_id = %(p1)s
 """
 
 CREATE_STASH: typing.Final[typing.LiteralString] = """-- name: CreateStash :one
-INSERT INTO stashes (is_binary, slug)
-VALUES (%(p1)s, %(p2)s)
-RETURNING id, is_binary, slug, added
+INSERT INTO stashes (is_binary, slug, added_by_ip)
+VALUES (%(p1)s, %(p2)s, %(p3)s)
+RETURNING id, is_binary, slug, added, added_by_ip, expires_at, one_time_view, password_hash, revoked_at, revoked_by_ip
 """
 
 CREATE_STASH_TEXT_CONTENT: typing.Final[typing.LiteralString] = """-- name: CreateStashTextContent :exec
@@ -105,6 +152,68 @@ SELECT EXISTS (
     FROM stashes
     WHERE slug = %(p1)s
 )
+"""
+
+CREATE_STASH_VIEW: typing.Final[typing.LiteralString] = """-- name: CreateStashView :exec
+INSERT INTO stash_views (stash_id, ip_address)
+VALUES (%(p1)s, %(p2)s)
+"""
+
+CREATE_STASH_PASSWORD_ATTEMPT: typing.Final[typing.LiteralString] = """-- name: CreateStashPasswordAttempt :exec
+INSERT INTO stash_password_attempts (
+    stash_id,
+    ip_address,
+    successful
+)
+VALUES (%(p1)s, %(p2)s, %(p3)s)
+"""
+
+CREATE_STASH_LOCKOUT: typing.Final[typing.LiteralString] = """-- name: CreateStashLockout :exec
+INSERT INTO stash_lockouts (
+    stash_id,
+    ip_address,
+    expires
+)
+VALUES (%(p1)s, %(p2)s, %(p3)s)
+"""
+
+GET_ACTIVE_STASH_LOCKOUT: typing.Final[typing.LiteralString] = """-- name: GetActiveStashLockout :one
+SELECT
+    id,
+    added,
+    expires
+FROM stash_lockouts
+WHERE stash_id = %(p1)s
+  AND ip_address = %(p2)s
+  AND expires > CURRENT_TIMESTAMP
+ORDER BY expires DESC
+LIMIT 1
+"""
+
+GET_STASH_VIEWS: typing.Final[typing.LiteralString] = """-- name: GetStashViews :one
+SELECT COUNT(*)
+FROM stash_views
+WHERE stash_id = %(p1)s
+"""
+
+GET_STASH_UNIQUE_VIEWS: typing.Final[typing.LiteralString] = """-- name: GetStashUniqueViews :one
+SELECT COUNT(DISTINCT ip_address)
+FROM stash_views
+WHERE stash_id = %(p1)s
+"""
+
+GET_STASH_VIEWS_BY_SLUG: typing.Final[typing.LiteralString] = """-- name: GetStashViewsBySlug :one
+SELECT COUNT(*)
+FROM stash_views
+JOIN stashes ON stashes.id = stash_views.stash_id
+WHERE stashes.slug = %(p1)s
+"""
+
+GET_STASH_UNIQUE_VIEWS_BY_SLUG: typing.Final[typing.LiteralString] = """-- name: GetStashUniqueViewsBySlug :one
+SELECT COUNT(DISTINCT stash_views.ip_address)
+FROM stash_views
+JOIN stashes ON stashes.id = stash_views.stash_id
+WHERE stashes.slug = %(p1)s
 """
 
 
@@ -154,19 +263,19 @@ async def get_stash(conn: ConnectionLike, *, id_: int) -> GetStashRow | None:
     row = await (await conn.execute(GET_STASH, {"p1": id_})).fetchone()
     if row is None:
         return None
-    return GetStashRow(is_binary=row[0], slug=row[1], added=row[2])
+    return GetStashRow(is_binary=row[0], slug=row[1], added=row[2], added_by_ip=str(row[3]), expires_at=row[4], one_time_view=row[5], password_hash=row[6], revoked_at=row[7], revoked_by_ip=str(row[8]) if row[8] is not None else None)
 
 
 async def get_stash_by_slug(conn: ConnectionLike, *, slug: str) -> GetStashBySlugRow | None:
     row = await (await conn.execute(GET_STASH_BY_SLUG, {"p1": slug})).fetchone()
     if row is None:
         return None
-    return GetStashBySlugRow(id_=row[0], is_binary=row[1], added=row[2])
+    return GetStashBySlugRow(id_=row[0], is_binary=row[1], added=row[2], added_by_ip=str(row[3]), expires_at=row[4], one_time_view=row[5], password_hash=row[6], revoked_at=row[7], revoked_by_ip=str(row[8]) if row[8] is not None else None)
 
 
 def list_stashes(conn: ConnectionLike, *, limit: int, offset: int) -> QueryResults[models.Stash]:
     def _decode_hook(row: psycopg.rows.TupleRow) -> models.Stash:
-        return models.Stash(id_=row[0], is_binary=row[1], slug=row[2], added=row[3])
+        return models.Stash(id_=row[0], is_binary=row[1], slug=row[2], added=row[3], added_by_ip=str(row[4]), expires_at=row[5], one_time_view=row[6], password_hash=row[7], revoked_at=row[8], revoked_by_ip=str(row[9]) if row[9] is not None else None)
 
     return QueryResults(conn, LIST_STASHES, _decode_hook, {"p1": limit, "p2": offset})
 
@@ -185,11 +294,11 @@ async def get_stash_binary_path(conn: ConnectionLike, *, stash_id: int) -> str |
     return row[0]
 
 
-async def create_stash(conn: ConnectionLike, *, is_binary: bool, slug: str) -> models.Stash | None:
-    row = await (await conn.execute(CREATE_STASH, {"p1": is_binary, "p2": slug})).fetchone()
+async def create_stash(conn: ConnectionLike, *, is_binary: bool, slug: str, added_by_ip: str) -> models.Stash | None:
+    row = await (await conn.execute(CREATE_STASH, {"p1": is_binary, "p2": slug, "p3": added_by_ip})).fetchone()
     if row is None:
         return None
-    return models.Stash(id_=row[0], is_binary=row[1], slug=row[2], added=row[3])
+    return models.Stash(id_=row[0], is_binary=row[1], slug=row[2], added=row[3], added_by_ip=str(row[4]), expires_at=row[5], one_time_view=row[6], password_hash=row[7], revoked_at=row[8], revoked_by_ip=str(row[9]) if row[9] is not None else None)
 
 
 async def create_stash_text_content(conn: ConnectionLike, *, stash_id: int, content: str) -> None:
@@ -202,6 +311,53 @@ async def create_stash_binary_path(conn: ConnectionLike, *, stash_id: int, file_
 
 async def check_slug_exists(conn: ConnectionLike, *, slug: str) -> bool | None:
     row = await (await conn.execute(CHECK_SLUG_EXISTS, {"p1": slug})).fetchone()
+    if row is None:
+        return None
+    return row[0]
+
+
+async def create_stash_view(conn: ConnectionLike, *, stash_id: int, ip_address: str) -> None:
+    await conn.execute(CREATE_STASH_VIEW, {"p1": stash_id, "p2": ip_address})
+
+
+async def create_stash_password_attempt(conn: ConnectionLike, *, stash_id: int, ip_address: str, successful: bool) -> None:
+    await conn.execute(CREATE_STASH_PASSWORD_ATTEMPT, {"p1": stash_id, "p2": ip_address, "p3": successful})
+
+
+async def create_stash_lockout(conn: ConnectionLike, *, stash_id: int, ip_address: str, expires: datetime.datetime) -> None:
+    await conn.execute(CREATE_STASH_LOCKOUT, {"p1": stash_id, "p2": ip_address, "p3": expires})
+
+
+async def get_active_stash_lockout(conn: ConnectionLike, *, stash_id: int, ip_address: str) -> GetActiveStashLockoutRow | None:
+    row = await (await conn.execute(GET_ACTIVE_STASH_LOCKOUT, {"p1": stash_id, "p2": ip_address})).fetchone()
+    if row is None:
+        return None
+    return GetActiveStashLockoutRow(id_=row[0], added=row[1], expires=row[2])
+
+
+async def get_stash_views(conn: ConnectionLike, *, stash_id: int) -> int | None:
+    row = await (await conn.execute(GET_STASH_VIEWS, {"p1": stash_id})).fetchone()
+    if row is None:
+        return None
+    return row[0]
+
+
+async def get_stash_unique_views(conn: ConnectionLike, *, stash_id: int) -> int | None:
+    row = await (await conn.execute(GET_STASH_UNIQUE_VIEWS, {"p1": stash_id})).fetchone()
+    if row is None:
+        return None
+    return row[0]
+
+
+async def get_stash_views_by_slug(conn: ConnectionLike, *, slug: str) -> int | None:
+    row = await (await conn.execute(GET_STASH_VIEWS_BY_SLUG, {"p1": slug})).fetchone()
+    if row is None:
+        return None
+    return row[0]
+
+
+async def get_stash_unique_views_by_slug(conn: ConnectionLike, *, slug: str) -> int | None:
+    row = await (await conn.execute(GET_STASH_UNIQUE_VIEWS_BY_SLUG, {"p1": slug})).fetchone()
     if row is None:
         return None
     return row[0]

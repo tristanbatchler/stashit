@@ -16,6 +16,7 @@ from fastapi import (
     Depends,
     FastAPI,
     HTTPException,
+    Request,
     UploadFile,
 )
 from fastapi.middleware.cors import CORSMiddleware
@@ -28,13 +29,13 @@ from starlette.status import (
     HTTP_200_OK,
     HTTP_201_CREATED,
     HTTP_400_BAD_REQUEST,
+    HTTP_401_UNAUTHORIZED,
     HTTP_404_NOT_FOUND,
     HTTP_422_UNPROCESSABLE_CONTENT,
     HTTP_500_INTERNAL_SERVER_ERROR,
 )
 
 from db import models, ops, query
-from db.query import GetStashBySlugRow
 from slug_service import new_slug
 
 logger = logging.getLogger(Path(__file__).name)
@@ -74,12 +75,19 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
 
 app: FastAPI = FastAPI(lifespan=lifespan)
 
+async def get_ip_addr(request: Request) -> str | None:
+    client_ip = request.headers.get("x-forwarded-for")
+    if client_ip is None and (address := request.client) is not None:
+        client_ip = address.host
+    return client_ip
+
 async def get_db_conn() -> AsyncGenerator[AsyncConnection]:
     async with db_conn_pool.connection() as conn:
 	    yield conn
 
 
 DBConn = Annotated[AsyncConnection, Depends(get_db_conn)]
+IPAddr = Annotated[str | None, Depends(get_ip_addr)]
 
 # Allow the SvelteKit dev server (and built site) to call this API from the browser.
 app.add_middleware(
@@ -108,12 +116,12 @@ async def list_stashes(page: int, take: int, db_conn: DBConn) -> Sequence[models
     return await query.list_stashes(db_conn, limit=take, offset=(page-1) * take)
 
 MAX_SLUG_ATTEMPTS = 10
-async def try_with_slug(operation: Callable[[int], Awaitable[None]], is_binary: bool, db_conn: DBConn) -> models.Stash:
+async def try_with_slug(operation: Callable[[int], Awaitable[None]], is_binary: bool, db_conn: AsyncConnection, ip_addr: str) -> models.Stash:
     for _ in range(MAX_SLUG_ATTEMPTS):
         slug = new_slug()
         try:
             async with db_conn.transaction():
-                stash = await query.create_stash(db_conn, is_binary=is_binary, slug=slug)
+                stash = await query.create_stash(db_conn, is_binary=is_binary, slug=slug, added_by_ip=ip_addr)
                 if stash is None:
                     raise RuntimeError("stash insert returned no row")
                 await operation(stash.id_)
@@ -126,15 +134,19 @@ async def try_with_slug(operation: Callable[[int], Awaitable[None]], is_binary: 
 
 
 @stashes_router.post("/text", status_code=HTTP_201_CREATED, response_model=models.Stash)
-async def add_text_stash(content: Annotated[str, Body()], db_conn: DBConn) -> models.Stash:
+async def add_text_stash(content: Annotated[str, Body()], db_conn: DBConn, ip_addr: IPAddr) -> models.Stash:
+    if ip_addr is None:
+        raise HTTPException(status_code=HTTP_401_UNAUTHORIZED, detail="The server could not determine your IP address")
     async def operation(stash_id: int):
         await query.create_stash_text_content(db_conn, stash_id=stash_id, content=content)
-    return await try_with_slug(operation, is_binary=False, db_conn=db_conn)
+    return await try_with_slug(operation, is_binary=False, db_conn=db_conn, ip_addr=ip_addr)
     
 
 
 @stashes_router.post("/file", status_code=HTTP_201_CREATED, response_model=models.Stash, responses={HTTP_422_UNPROCESSABLE_CONTENT: {"model": Message}})
-async def add_binary_stash(file: UploadFile, db_conn: DBConn) -> models.Stash:
+async def add_binary_stash(file: UploadFile, db_conn: DBConn, ip_addr: IPAddr) -> models.Stash:
+    if ip_addr is None:
+        raise HTTPException(status_code=HTTP_401_UNAUTHORIZED, detail="The server could not determine your IP address")
 
     try:
         uploads_dir = Path(__file__).parent / "uploads"
@@ -164,13 +176,16 @@ async def add_binary_stash(file: UploadFile, db_conn: DBConn) -> models.Stash:
 
         async def operation(stash_id: int):
             await query.create_stash_binary_path(db_conn, stash_id=stash_id, file_path=str(destination))
-        return await try_with_slug(operation, is_binary=True, db_conn=db_conn)
+        return await try_with_slug(operation, is_binary=True, db_conn=db_conn, ip_addr=ip_addr)
 
     finally:
         await file.close()
 
 @stashes_router.get("/file/{slug}", status_code=HTTP_200_OK, response_class=FileResponse, responses={HTTP_404_NOT_FOUND: {"model": Message}, HTTP_200_OK: {"content": {"application/octet-stream": {}}}})
-async def get_file_stash(slug: str, db_conn: DBConn) -> FileResponse:
+async def get_file_stash(slug: str, db_conn: DBConn, ip_addr: IPAddr) -> FileResponse:
+    if ip_addr is None:
+        raise HTTPException(status_code=HTTP_401_UNAUTHORIZED, detail="The server could not determine your IP address")
+
     stash = await query.get_stash_by_slug(db_conn, slug=slug)
     if stash is None:
         raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail="Stash does not exist by that slug")
@@ -190,6 +205,9 @@ async def get_file_stash(slug: str, db_conn: DBConn) -> FileResponse:
             detail="Stored file is missing",
         )
 
+    async with db_conn.transaction():
+        await query.create_stash_view(db_conn, stash_id=stash.id_, ip_address=ip_addr)
+
     return FileResponse(
         path,
         filename=path.name,
@@ -197,7 +215,10 @@ async def get_file_stash(slug: str, db_conn: DBConn) -> FileResponse:
 
 
 @stashes_router.get("/text/{slug}", status_code=HTTP_200_OK, response_model=str, responses={HTTP_404_NOT_FOUND: {"model": Message}})
-async def get_text_stash(slug: str, db_conn: DBConn) -> str:
+async def get_text_stash(slug: str, db_conn: DBConn, ip_addr: IPAddr) -> str:
+    if ip_addr is None:
+        raise HTTPException(status_code=HTTP_401_UNAUTHORIZED, detail="The server could not determine your IP address")
+
     stash = await query.get_stash_by_slug(db_conn, slug=slug)
     if stash is None:
         raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail="Stash does not exist by that slug")
@@ -208,13 +229,30 @@ async def get_text_stash(slug: str, db_conn: DBConn) -> str:
     content = await query.get_stash_text_content(db_conn, stash_id=stash.id_)
     if content is None:
         raise RuntimeError("Stash content select returned no rows")
+
+    async with db_conn.transaction():
+        await query.create_stash_view(db_conn, stash_id=stash.id_, ip_address=ip_addr)
+
     return content
 
 
-@stashes_router.get("/metadata/{slug}", status_code=HTTP_200_OK, response_model=GetStashBySlugRow, responses={HTTP_404_NOT_FOUND: {"model": Message}})
-async def get_stash_metadata(slug: str, db_conn: DBConn) -> GetStashBySlugRow:
+@stashes_router.get("/metadata/{slug}", status_code=HTTP_200_OK, response_model=query.GetStashBySlugRow, responses={HTTP_404_NOT_FOUND: {"model": Message}})
+async def get_stash_metadata(slug: str, db_conn: DBConn) -> query.GetStashBySlugRow:
     stash = await query.get_stash_by_slug(db_conn, slug=slug)
     if stash is None:
         raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail="Stash does not exist by that slug")
     
     return stash
+
+@stashes_router.get("/views/{slug}", status_code=HTTP_200_OK, response_model=int)
+async def get_stash_views(slug: str, unique: bool, db_conn: DBConn) -> int:
+    views: int | None = None
+    if unique:
+        views = await query.get_stash_unique_views_by_slug(db_conn, slug=slug)
+    else:
+        views = await query.get_stash_views_by_slug(db_conn, slug=slug)
+    
+    if views is None:
+        raise RuntimeError(f"Could not get views for slug {slug}")
+    
+    return views

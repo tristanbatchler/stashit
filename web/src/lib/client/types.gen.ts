@@ -30,6 +30,30 @@ export type GetStashBySlugRow = {
      * Added
      */
     added: string;
+    /**
+     * Added By Ip
+     */
+    added_by_ip: string;
+    /**
+     * Expires At
+     */
+    expires_at: string | null;
+    /**
+     * One Time View
+     */
+    one_time_view: boolean;
+    /**
+     * Password Hash
+     */
+    password_hash: string | null;
+    /**
+     * Revoked At
+     */
+    revoked_at: string | null;
+    /**
+     * Revoked By Ip
+     */
+    revoked_by_ip: string | null;
 };
 
 /**
@@ -72,6 +96,30 @@ export type Stash = {
      * Added
      */
     added: string;
+    /**
+     * Added By Ip
+     */
+    added_by_ip: string;
+    /**
+     * Expires At
+     */
+    expires_at: string | null;
+    /**
+     * One Time View
+     */
+    one_time_view: boolean;
+    /**
+     * Password Hash
+     */
+    password_hash: string | null;
+    /**
+     * Revoked At
+     */
+    revoked_at: string | null;
+    /**
+     * Revoked By Ip
+     */
+    revoked_by_ip: string | null;
 };
 
 /**
@@ -318,3 +366,44 @@ export type GetStashMetadataApiV1StashesMetadataSlugGetResponses = {
 };
 
 export type GetStashMetadataApiV1StashesMetadataSlugGetResponse = GetStashMetadataApiV1StashesMetadataSlugGetResponses[keyof GetStashMetadataApiV1StashesMetadataSlugGetResponses];
+
+export type GetStashViewsApiV1StashesViewsSlugGetData = {
+    body?: never;
+    path: {
+        /**
+         * Slug
+         */
+        slug: string;
+    };
+    query: {
+        /**
+         * Unique
+         */
+        unique: boolean;
+    };
+    url: '/api/v1/stashes/views/{slug}';
+};
+
+export type GetStashViewsApiV1StashesViewsSlugGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+    /**
+     * Internal Server Error
+     */
+    500: Message;
+};
+
+export type GetStashViewsApiV1StashesViewsSlugGetError = GetStashViewsApiV1StashesViewsSlugGetErrors[keyof GetStashViewsApiV1StashesViewsSlugGetErrors];
+
+export type GetStashViewsApiV1StashesViewsSlugGetResponses = {
+    /**
+     * Response Get Stash Views Api V1 Stashes Views  Slug  Get
+     *
+     * Successful Response
+     */
+    200: number;
+};
+
+export type GetStashViewsApiV1StashesViewsSlugGetResponse = GetStashViewsApiV1StashesViewsSlugGetResponses[keyof GetStashViewsApiV1StashesViewsSlugGetResponses];

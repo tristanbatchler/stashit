@@ -24,4 +24,9 @@
 		<h6>Share</h6>
 		<QRCode data={pageUrl} />
 	</section>
+
+	<footer>
+		<p>{data.isBinary ? "Downloads" : "Views"}: {data.viewcount}</p>
+		<p>Unique: {data.uniqueViewcount}</p>
+	</footer>
 </section>

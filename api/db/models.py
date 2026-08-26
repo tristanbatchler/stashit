@@ -6,6 +6,9 @@ from __future__ import annotations
 
 __all__: collections.abc.Sequence[str] = (
     "Stash",
+    "StashLockout",
+    "StashPasswordAttempt",
+    "StashView",
     "StashesBinaryPath",
     "StashesTextContent",
 )
@@ -25,6 +28,41 @@ class Stash(pydantic.BaseModel):
     is_binary: bool
     slug: str
     added: datetime.datetime
+    added_by_ip: str
+    expires_at: datetime.datetime | None
+    one_time_view: bool
+    password_hash: str | None
+    revoked_at: datetime.datetime | None
+    revoked_by_ip: str | None
+
+
+class StashLockout(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
+
+    id_: int
+    stash_id: int
+    ip_address: str
+    added: datetime.datetime
+    expires: datetime.datetime
+
+
+class StashPasswordAttempt(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
+
+    id_: int
+    stash_id: int
+    ip_address: str
+    successful: bool
+    attempted_at: datetime.datetime
+
+
+class StashView(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
+
+    id_: int
+    stash_id: int
+    ip_address: str
+    viewed_at: datetime.datetime
 
 
 class StashesBinaryPath(pydantic.BaseModel):

@@ -18,6 +18,7 @@
 					<th scope="col">Unique ID</th>
 					<th scope="col">Type</th>
 					<th scope="col">Added</th>
+					<th scope="col">IP</th>
 				</tr>
 			</thead>
 			<tbody>
@@ -28,6 +29,7 @@
 						</th>
 						<td>{stash.is_binary ? 'File' : 'Text'}</td>
 						<td>{stash.added}</td>
+						<td>{stash.added_by_ip}</td>
 					</tr>
 				{:else}
 					<tr>
