@@ -64,34 +64,28 @@ def randomly_inflect_and_prepend_verb(verb: str) -> str:
 
     return f"{prefix} {new_verb}"
 
+templates = (
+    (WordType.ADVERBS, WordType.ADJECTIVES, WordType.NOUNS, WordType.VERBS),
+    (WordType.ADJECTIVES, WordType.NOUNS, WordType.VERBS),
+    (WordType.NOUNS, WordType.VERBS, WordType.ADVERBS),
+    (WordType.NOUNS, WordType.VERBS, WordType.NOUNS),
+    (WordType.NOUNS, WordType.VERBS, WordType.ADJECTIVES, WordType.NOUNS),
+    (WordType.NOUNS, WordType.VERBS, "and", WordType.NOUNS, WordType.VERBS),
+)
+
 def new_slug() -> str:
-    # Load some up to work with
+    template = secrets.choice(templates)
 
-    nouns = [choose(WordType.NOUNS) for _ in range(5)]
-    adjectives = [choose(WordType.ADJECTIVES) for _ in range(5)]
-    adverbs = [choose(WordType.ADVERBS) for _ in range(5)]
-    verbs = [
-        randomly_inflect_and_prepend_verb(choose(WordType.VERBS))
-        for _ in range(5)
-    ]
-
-    templates = (
-        (adverbs[0], adjectives[0], nouns[0], verbs[0]),
-        (adjectives[0], nouns[0], verbs[0]),
-        (nouns[0], verbs[0], adverbs[0]),
-        (nouns[0], verbs[0], nouns[1]),
-        (nouns[0], verbs[0], adjectives[0], nouns[1]),
-        (nouns[0], verbs[0], "and", nouns[1], verbs[1]) # Removed trailing space
-    )
-
-    raw_words = secrets.choice(templates)
-    
-    # Process each segment: split by spaces to handle helper prefixes correctly
     slug_parts: list[str] = []
-    for segment in raw_words:
-        for word in segment.split():
-            slug_parts.append(word.capitalize())
+    for token in template:
+        word: str = token
+        if token in WordType:
+            word = choose(WordType(token))
+            if token is WordType.VERBS:
+                word = randomly_inflect_and_prepend_verb(word)
 
+        slug_parts.append(word.title().replace(" ", ""))
+        
     return "".join(slug_parts)
 
 
