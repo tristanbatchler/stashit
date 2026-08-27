@@ -26,7 +26,12 @@
 	</section>
 
 	<footer>
-		<p>{data.isBinary ? "Downloads" : "Views"}: {data.viewcount}</p>
-		<p>Unique: {data.uniqueViewcount}</p>
+		{#if data.isBinary}
+			<p>Downloads: {data.views ?? "N/A"}</p>
+			<p>Unique: {data.uniqueViews ?? "N/A"}</p>
+		{:else}
+			<p>Views: {data.views !== undefined ? data.views + 1 : "N/A"}</p>
+			<p>Unique: {data.uniqueViews == 0 ? 1 : data.uniqueViews ?? "N/A"}</p>
+		{/if}
 	</footer>
 </section>
