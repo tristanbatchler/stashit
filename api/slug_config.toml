@@ -163,6 +163,7 @@ verbs = [
     "save",
     "hear",
     "mog",
+    "banish",
 ]
 
 adjectives = [
