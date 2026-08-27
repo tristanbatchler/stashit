@@ -13,9 +13,10 @@ export const load: PageServerLoad = async ({ url }) => {
 		query: { page, take: PAGE_SIZE + 1 }
 	}).then((response) => {
 		const stashes = response.data ?? [];
+
 		return {
 			error: response.error,
-			stashes,
+			stashes: stashes.slice(0, PAGE_SIZE),
 			hasNext: stashes.length > PAGE_SIZE
 		};
 	});
