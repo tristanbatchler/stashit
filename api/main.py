@@ -1,7 +1,8 @@
 import logging
 from collections.abc import AsyncGenerator, Awaitable, Callable, Sequence
 from contextlib import asynccontextmanager
-from enum import StrEnum
+from dataclasses import dataclass
+from enum import Enum
 from os import getenv
 from pathlib import Path
 from sys import exit
@@ -33,6 +34,7 @@ from starlette.status import (
     HTTP_400_BAD_REQUEST,
     HTTP_401_UNAUTHORIZED,
     HTTP_404_NOT_FOUND,
+    HTTP_413_CONTENT_TOO_LARGE,
     HTTP_422_UNPROCESSABLE_CONTENT,
     HTTP_500_INTERNAL_SERVER_ERROR,
 )
@@ -42,24 +44,41 @@ from slug_service import new_slug
 
 logger = logging.getLogger(Path(__file__).name)
 
+@dataclass
+class ConfigItem:
+    key: str
+    int_range: tuple[int | None, int | None] = (None, None)
 
-class ConfigKey(StrEnum):
-    DB_DATABASE = "DB_DATABASE"
-    DB_USERNAME = "DB_USERNAME"
-    DB_PASSWORD = "DB_PASSWORD"
-    DB_HOST = "DB_HOST"
-    DB_PORT = "DB_PORT"
-    APP_BASE_URL = "APP_BASE_URL"
+class ConfigKey(Enum):
+    DB_DATABASE = ConfigItem("DB_DATABASE")
+    DB_USERNAME = ConfigItem("DB_USERNAME")
+    DB_PASSWORD = ConfigItem("DB_PASSWORD")
+    DB_HOST = ConfigItem("DB_HOST")
+    DB_PORT = ConfigItem("DB_PORT", (0, 0xFFFF))
+    APP_BASE_URL = ConfigItem("APP_BASE_URL")
+    APP_MAX_UPLOAD_BYTES = ConfigItem("APP_MAX_UPLOAD_BYTES", (1, None))
+
 
 config: dict[ConfigKey, str] = {}
 
 _ = load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
 
 for config_key in ConfigKey:
-    value = getenv(config_key)
+    config_item = config_key.value
+    value = getenv(config_item.key)
     if value is None:
         logger.fatal("Missing configuration key %s", config_key)
         exit(1)
+
+    _min, _max = config_item.int_range
+    if None not in (_min, _max):
+        try:
+            n = int(value)
+            if (_min and n < _min) or (_max and n > _max):
+                raise ValueError
+        except ValueError:
+            logger.fatal("Invalid integer value %s for config item: %s", value, config_key)
+
 
     config[config_key] = value
 
@@ -149,7 +168,7 @@ async def add_text_stash(content: Annotated[str, Body()], db_conn: DBConn, ip_ad
     
 
 
-@stashes_router.post("/file", status_code=HTTP_201_CREATED, response_model=models.Stash, responses={HTTP_422_UNPROCESSABLE_CONTENT: {"model": Message}})
+@stashes_router.post("/file", status_code=HTTP_201_CREATED, response_model=models.Stash, responses={HTTP_422_UNPROCESSABLE_CONTENT: {"model": Message}, HTTP_413_CONTENT_TOO_LARGE: {"model": Message}})
 async def add_binary_stash(file: UploadFile, db_conn: DBConn, ip_addr: IPAddr) -> models.Stash:
     if ip_addr is None:
         raise HTTPException(
@@ -171,6 +190,13 @@ async def add_binary_stash(file: UploadFile, db_conn: DBConn, ip_addr: IPAddr) -
             raise HTTPException(
                 HTTP_422_UNPROCESSABLE_CONTENT,
                 "The uploaded file is empty or corrupted",
+            )
+
+        max_allowed_bytes = int(config[ConfigKey.APP_MAX_UPLOAD_BYTES])
+        if file.size > max_allowed_bytes:
+            raise HTTPException(
+                HTTP_413_CONTENT_TOO_LARGE, 
+                f"The uploaded file is too large (max size: {max_allowed_bytes} bytes)"
             )
 
         uuid_str = uuid4().hex

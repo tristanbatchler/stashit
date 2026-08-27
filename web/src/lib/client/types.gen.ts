@@ -231,6 +231,10 @@ export type AddBinaryStashApiV1StashesFilePostData = {
 
 export type AddBinaryStashApiV1StashesFilePostErrors = {
     /**
+     * Content Too Large
+     */
+    413: Message;
+    /**
      * Unprocessable Content
      */
     422: Message;
