@@ -19,6 +19,8 @@ from fastapi import (
     Request,
     UploadFile,
 )
+
+# jsonable_encoder removed; FastAPI will serialize pydantic models automatically
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from psycopg import AsyncConnection
@@ -76,10 +78,13 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
 app: FastAPI = FastAPI(lifespan=lifespan)
 
 async def get_ip_addr(request: Request) -> str | None:
-    client_ip = request.headers.get("x-forwarded-for")
-    if client_ip is None and (address := request.client) is not None:
-        client_ip = address.host
-    return client_ip
+    if forwarded_for := request.headers.get("x-forwarded-for"):
+        return forwarded_for.split(",", 1)[0].strip()
+
+    if request.client is not None:
+        return request.client.host
+
+    return None
 
 async def get_db_conn() -> AsyncGenerator[AsyncConnection]:
     async with db_conn_pool.connection() as conn:
@@ -102,7 +107,6 @@ app.add_middleware(
 
 class Message(BaseModel):
     detail: str
-
 
 api_router = APIRouter(prefix="/api/v1", responses={HTTP_500_INTERNAL_SERVER_ERROR: {"model": Message}})
 stashes_router = APIRouter(prefix="/stashes")
@@ -134,11 +138,13 @@ async def try_with_slug(operation: Callable[[int], Awaitable[None]], is_binary: 
 
 
 @stashes_router.post("/text", status_code=HTTP_201_CREATED, response_model=models.Stash)
-async def add_text_stash(content: Annotated[str, Body()], db_conn: DBConn, ip_addr: IPAddr) -> models.Stash:
+async def add_text_stash(content: Annotated[str, Body()], db_conn: DBConn, ip_addr: IPAddr) -> models.Stash:    
     if ip_addr is None:
         raise HTTPException(status_code=HTTP_401_UNAUTHORIZED, detail="The server could not determine your IP address")
+
     async def operation(stash_id: int):
         await query.create_stash_text_content(db_conn, stash_id=stash_id, content=content)
+
     return await try_with_slug(operation, is_binary=False, db_conn=db_conn, ip_addr=ip_addr)
     
 
@@ -146,37 +152,66 @@ async def add_text_stash(content: Annotated[str, Body()], db_conn: DBConn, ip_ad
 @stashes_router.post("/file", status_code=HTTP_201_CREATED, response_model=models.Stash, responses={HTTP_422_UNPROCESSABLE_CONTENT: {"model": Message}})
 async def add_binary_stash(file: UploadFile, db_conn: DBConn, ip_addr: IPAddr) -> models.Stash:
     if ip_addr is None:
-        raise HTTPException(status_code=HTTP_401_UNAUTHORIZED, detail="The server could not determine your IP address")
+        raise HTTPException(
+            status_code=HTTP_401_UNAUTHORIZED,
+            detail="The server could not determine your IP address",
+        )
 
     try:
         uploads_dir = Path(__file__).parent / "uploads"
         uploads_dir.mkdir(exist_ok=True)
 
         if file.filename is None:
-            raise HTTPException(HTTP_422_UNPROCESSABLE_CONTENT, "The uploaded file must have a valid filename")
+            raise HTTPException(
+                HTTP_422_UNPROCESSABLE_CONTENT,
+                "The uploaded file must have a valid filename",
+            )
 
         if file.size in (None, 0):
-            raise HTTPException(HTTP_422_UNPROCESSABLE_CONTENT, "The uploaded file is empty or corrupted")
+            raise HTTPException(
+                HTTP_422_UNPROCESSABLE_CONTENT,
+                "The uploaded file is empty or corrupted",
+            )
 
-
-        uuid = uuid4().hex
-        unique_folder = uploads_dir / uuid
+        uuid_str = uuid4().hex
+        unique_folder = uploads_dir / uuid_str
         unique_folder.mkdir(parents=True, exist_ok=True)
-        
+
         sanitized_filename = Path(file.filename).name
         destination = unique_folder / sanitized_filename
 
-        bytes_written = 0
         async with aiofiles.open(destination, "wb") as buffer:
             while chunk := await file.read(1024 * 64):
                 _ = await buffer.write(chunk)
-                bytes_written += len(chunk)
-                #progress = (bytes_written / file.size) * 100
-                # TODO: It'd be nice to stream the progress back to the client...
 
         async def operation(stash_id: int):
-            await query.create_stash_binary_path(db_conn, stash_id=stash_id, file_path=str(destination))
-        return await try_with_slug(operation, is_binary=True, db_conn=db_conn, ip_addr=ip_addr)
+            await query.create_stash_binary_path(
+                db_conn,
+                stash_id=stash_id,
+                file_path=str(destination),
+            )
+
+        try:
+            return await try_with_slug(
+                operation,
+                is_binary=True,
+                db_conn=db_conn,
+                ip_addr=ip_addr,
+            )
+        except Exception:
+            try:
+                if destination.exists():
+                    destination.unlink()
+
+                if unique_folder.exists() and not any(unique_folder.iterdir()):
+                    unique_folder.rmdir()
+            except Exception:
+                logger.exception(
+                    "Failed to cleanup uploaded file after DB error: %s",
+                    destination,
+                )
+
+            raise
 
     finally:
         await file.close()
