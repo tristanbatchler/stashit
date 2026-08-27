@@ -1,4 +1,5 @@
 import { listStashesApiV1StashesGet } from '$lib/client';
+import { redirect } from '@sveltejs/kit'; // [!] Import redirect
 import type { PageServerLoad } from './$types';
 
 const PAGE_SIZE = 10;
@@ -20,6 +21,14 @@ export const load: PageServerLoad = async ({ url }) => {
 			hasNext: stashes.length > PAGE_SIZE
 		};
 	});
+
+	// Intercept out-of-bounds page requests instantly on the server side
+	if (page > 1) {
+		const result = await stashesPromise;
+		if (result.stashes.length === 0) {
+			throw redirect(302, '/?page=1');
+		}
+	}
 
 	return {
 		page,

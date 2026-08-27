@@ -17,6 +17,7 @@ from fastapi import (
     Depends,
     FastAPI,
     HTTPException,
+    Query,
     Request,
     UploadFile,
 )
@@ -58,7 +59,7 @@ class ConfigKey(Enum):
     DB_PORT = ConfigItem("DB_PORT", (0, 0xFFFF))
     APP_BASE_URL = ConfigItem("APP_BASE_URL")
     APP_MAX_UPLOAD_BYTES = ConfigItem("APP_MAX_UPLOAD_BYTES", (1, None))
-
+    APP_MAX_PAGE_TAKE = ConfigItem("APP_MAX_PAGE_TAKE", (1, 200))
 
 config: dict[ConfigKey, str] = {}
 
@@ -75,7 +76,7 @@ for config_key in ConfigKey:
     if (_min is not None) or (_max is not None):
         try:
             n = int(value)
-            if (_min and n < _min) or (_max and n > _max):
+            if (_min is not None and n < _min) or (_max is not None and n > _max):
                 raise ValueError
         except ValueError:
             logger.fatal("Invalid integer value %s for config item: %s", value, config_key)
@@ -146,8 +147,9 @@ api_router.include_router(stashes_router)
 app.include_router(api_router)
 
 
+max_page_take = int(config[ConfigKey.APP_MAX_PAGE_TAKE])
 @stashes_router.get("/", status_code=HTTP_200_OK, response_model=Sequence[models.Stash])
-async def list_stashes(page: int, take: int, db_conn: DBConn) -> Sequence[models.Stash]:
+async def list_stashes(page: int, take: Annotated[int, Query(lt=max_page_take, gt=0)], db_conn: DBConn) -> Sequence[models.Stash]:
     return await query.list_stashes(db_conn, limit=take, offset=(page-1) * take)
 
 MAX_SLUG_ATTEMPTS = 10
