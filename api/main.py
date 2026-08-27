@@ -72,13 +72,14 @@ for config_key in ConfigKey:
         exit(1)
 
     _min, _max = config_item.int_range
-    if None not in (_min, _max):
+    if (_min is not None) or (_max is not None):
         try:
             n = int(value)
             if (_min and n < _min) or (_max and n > _max):
                 raise ValueError
         except ValueError:
             logger.fatal("Invalid integer value %s for config item: %s", value, config_key)
+            exit(1)
 
 
     config[config_key] = value
