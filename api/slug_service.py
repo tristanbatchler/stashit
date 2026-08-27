@@ -4,16 +4,21 @@ from enum import StrEnum
 from pathlib import Path
 from typing import cast
 
+from inflect import engine
 from lemminflect import (  # pyright: ignore[reportMissingTypeStubs]
     getInflection,  # pyright: ignore[reportUnknownVariableType]
 )
 
+p = engine()
 
 class WordType(StrEnum):
-    NOUNS = "nouns"
+    PROPER_NOUNS = "proper_nouns"
+    COMMON_NOUNS = "common_nouns"
     VERBS = "verbs"
     ADJECTIVES = "adjectives"
     ADVERBS = "adverbs"
+    ARTICLES = "articles"
+    CONJUNCTIONS = "conjunctions"
 
 
 # Nerd shit
@@ -64,42 +69,104 @@ def randomly_inflect_and_prepend_verb(verb: str) -> str:
 
     return f"{prefix} {new_verb}"
 
+wt = WordType
 templates = (
-    (WordType.ADVERBS, WordType.ADJECTIVES, WordType.NOUNS, WordType.VERBS),
-    (WordType.ADJECTIVES, WordType.NOUNS, WordType.VERBS),
-    (WordType.NOUNS, WordType.VERBS, WordType.ADVERBS),
-    (WordType.NOUNS, WordType.VERBS, WordType.NOUNS),
-    (WordType.NOUNS, WordType.VERBS, WordType.ADJECTIVES, WordType.NOUNS),
-    (WordType.NOUNS, WordType.VERBS, "and", WordType.NOUNS, WordType.VERBS),
+    # john ate swiftly
+    # (wt.PROPER_NOUNS, wt.VERBS, wt.ADVERBS),
+    # john will eat paul
+    # (wt.PROPER_NOUNS, wt.VERBS, wt.PROPER_NOUNS),
+    # john kicked lazy paul
+    (wt.PROPER_NOUNS, wt.VERBS, wt.ADJECTIVES, wt.PROPER_NOUNS),
+    # john has eaten so paul ate
+    (wt.PROPER_NOUNS, wt.VERBS, wt.CONJUNCTIONS, wt.PROPER_NOUNS, wt.VERBS),
+    # lazy john ate early
+    (wt.ADJECTIVES, wt.PROPER_NOUNS, wt.VERBS, wt.ADVERBS),
+    # john the lazy will eat early
+    (wt.PROPER_NOUNS, "the", wt.ADJECTIVES, wt.VERBS, wt.ADVERBS),
+    # john and paul eat roy
+    (wt.PROPER_NOUNS, "and", wt.PROPER_NOUNS, wt.VERBS, wt.PROPER_NOUNS),
+    # john eats paul and roy
+    (wt.PROPER_NOUNS, wt.VERBS, wt.PROPER_NOUNS, "and", wt.PROPER_NOUNS),
+    # john eats paul with roy
+    (wt.PROPER_NOUNS, wt.VERBS, wt.PROPER_NOUNS, "with", wt.PROPER_NOUNS),
+    # john ate a rat early
+    (wt.PROPER_NOUNS, wt.VERBS, wt.ARTICLES, wt.COMMON_NOUNS, wt.ADVERBS),
+    # lazy john ate a rat
+    (wt.ADJECTIVES, wt.PROPER_NOUNS, wt.VERBS, wt.ARTICLES, wt.COMMON_NOUNS),
+    # a lazy rat ate early
+    (wt.ARTICLES, wt.ADJECTIVES, wt.COMMON_NOUNS, wt.VERBS, wt.ADVERBS),
+    # the rat ate a lazy bird
+    (wt.ARTICLES, wt.COMMON_NOUNS, wt.VERBS, wt.ARTICLES, wt.ADJECTIVES, wt.COMMON_NOUNS),
+    # the rat will eat lazy john
+    (wt.ARTICLES, wt.COMMON_NOUNS, wt.VERBS, wt.ADJECTIVES, wt.PROPER_NOUNS),
 )
 
 def new_slug() -> str:
     template = secrets.choice(templates)
 
-    slug_parts: list[str] = []
+    words: list[str] = []
+
+    # First generate all actual words.
     for token in template:
-        word: str = token
-        if token in WordType:
+        if token in WordType and token is not WordType.ARTICLES:
             word = choose(WordType(token))
+
             if token is WordType.VERBS:
                 word = randomly_inflect_and_prepend_verb(word)
 
-        slug_parts.append(word.title().replace(" ", ""))
-        
-    return "".join(slug_parts)
+            words.append(word)
 
+        elif token is WordType.ARTICLES:
+            words.append("")
 
-if __name__ == "__main__":
-    for _ in range(100):
+        else:
+            words.append(token)
+
+    # Resolve articles after the surrounding words exist.
+    for i, token in enumerate(template):
+        if token is not WordType.ARTICLES:
+            continue
+
+        noun_index = i + 1
+
+        # Skip adjectives between the article and noun.
+        while (
+            noun_index < len(template)
+            and template[noun_index] is WordType.ADJECTIVES
+        ):
+            noun_index += 1
+
+        if noun_index >= len(template):
+            raise ValueError("ARTICLE has no following noun")
+
+        noun_token = template[noun_index]
+
+        if noun_token not in (
+            WordType.COMMON_NOUNS,
+            WordType.PROPER_NOUNS,
+        ):
+            raise ValueError(
+                f"ARTICLE must eventually be followed by a noun, got {noun_token!r}"
+            )
+
+        # Choose the article from the configured article list.
+        article = choose(WordType.ARTICLES)
+
+        # Only "a" needs grammatical adjustment to "an".
+        if article == "a":
+            phrase = " ".join(words[i + 1 : noun_index + 1])
+            article = p.a(phrase).split()[0]  # pyright: ignore[reportArgumentType]
+
+        words[i] = article
+
+    return "".join(
+        word.title().replace(" ", "")
+        for word in words
+    )
+
+def preview_generations():
+    for _ in range(1000):
         print(new_slug())
 
-    # for key, words in data.items():
-    #     print(f"{key}: {len(words)} words")
-
-    # seen: set[str] = set()
-
-    # for _ in range(100_000):
-    #     seen.add(new_slug())
-
-    # print(f"Unique: {len(seen):,}")
-    # print(f"Collisions: {100_000 - len(seen):,}")
+if __name__ == "__main__":
+    preview_generations()
