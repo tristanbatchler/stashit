@@ -411,3 +411,30 @@ export type GetStashViewsApiV1StashesViewsSlugGetResponses = {
 };
 
 export type GetStashViewsApiV1StashesViewsSlugGetResponse = GetStashViewsApiV1StashesViewsSlugGetResponses[keyof GetStashViewsApiV1StashesViewsSlugGetResponses];
+
+export type GetConfigApiV1ConfigMaxUploadBytesGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/config/max-upload-bytes';
+};
+
+export type GetConfigApiV1ConfigMaxUploadBytesGetErrors = {
+    /**
+     * Internal Server Error
+     */
+    500: Message;
+};
+
+export type GetConfigApiV1ConfigMaxUploadBytesGetError = GetConfigApiV1ConfigMaxUploadBytesGetErrors[keyof GetConfigApiV1ConfigMaxUploadBytesGetErrors];
+
+export type GetConfigApiV1ConfigMaxUploadBytesGetResponses = {
+    /**
+     * Response Get Config Api V1 Config Max Upload Bytes Get
+     *
+     * Successful Response
+     */
+    200: number;
+};
+
+export type GetConfigApiV1ConfigMaxUploadBytesGetResponse = GetConfigApiV1ConfigMaxUploadBytesGetResponses[keyof GetConfigApiV1ConfigMaxUploadBytesGetResponses];

@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddBinaryStashApiV1StashesFilePostData, AddBinaryStashApiV1StashesFilePostErrors, AddBinaryStashApiV1StashesFilePostResponses, AddTextStashApiV1StashesTextPostData, AddTextStashApiV1StashesTextPostErrors, AddTextStashApiV1StashesTextPostResponses, GetFileStashApiV1StashesFileSlugGetData, GetFileStashApiV1StashesFileSlugGetErrors, GetFileStashApiV1StashesFileSlugGetResponses, GetStashMetadataApiV1StashesMetadataSlugGetData, GetStashMetadataApiV1StashesMetadataSlugGetErrors, GetStashMetadataApiV1StashesMetadataSlugGetResponses, GetStashViewsApiV1StashesViewsSlugGetData, GetStashViewsApiV1StashesViewsSlugGetErrors, GetStashViewsApiV1StashesViewsSlugGetResponses, GetTextStashApiV1StashesTextSlugGetData, GetTextStashApiV1StashesTextSlugGetErrors, GetTextStashApiV1StashesTextSlugGetResponses, ListStashesApiV1StashesGetData, ListStashesApiV1StashesGetErrors, ListStashesApiV1StashesGetResponses } from './types.gen';
+import type { AddBinaryStashApiV1StashesFilePostData, AddBinaryStashApiV1StashesFilePostErrors, AddBinaryStashApiV1StashesFilePostResponses, AddTextStashApiV1StashesTextPostData, AddTextStashApiV1StashesTextPostErrors, AddTextStashApiV1StashesTextPostResponses, GetConfigApiV1ConfigMaxUploadBytesGetData, GetConfigApiV1ConfigMaxUploadBytesGetErrors, GetConfigApiV1ConfigMaxUploadBytesGetResponses, GetFileStashApiV1StashesFileSlugGetData, GetFileStashApiV1StashesFileSlugGetErrors, GetFileStashApiV1StashesFileSlugGetResponses, GetStashMetadataApiV1StashesMetadataSlugGetData, GetStashMetadataApiV1StashesMetadataSlugGetErrors, GetStashMetadataApiV1StashesMetadataSlugGetResponses, GetStashViewsApiV1StashesViewsSlugGetData, GetStashViewsApiV1StashesViewsSlugGetErrors, GetStashViewsApiV1StashesViewsSlugGetResponses, GetTextStashApiV1StashesTextSlugGetData, GetTextStashApiV1StashesTextSlugGetErrors, GetTextStashApiV1StashesTextSlugGetResponses, ListStashesApiV1StashesGetData, ListStashesApiV1StashesGetErrors, ListStashesApiV1StashesGetResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -67,3 +67,8 @@ export const getStashMetadataApiV1StashesMetadataSlugGet = <ThrowOnError extends
  * Get Stash Views
  */
 export const getStashViewsApiV1StashesViewsSlugGet = <ThrowOnError extends boolean = false>(options: Options<GetStashViewsApiV1StashesViewsSlugGetData, ThrowOnError>): RequestResult<GetStashViewsApiV1StashesViewsSlugGetResponses, GetStashViewsApiV1StashesViewsSlugGetErrors, ThrowOnError> => (options.client ?? client).get<GetStashViewsApiV1StashesViewsSlugGetResponses, GetStashViewsApiV1StashesViewsSlugGetErrors, ThrowOnError>({ url: '/api/v1/stashes/views/{slug}', ...options });
+
+/**
+ * Get Config
+ */
+export const getConfigApiV1ConfigMaxUploadBytesGet = <ThrowOnError extends boolean = false>(options?: Options<GetConfigApiV1ConfigMaxUploadBytesGetData, ThrowOnError>): RequestResult<GetConfigApiV1ConfigMaxUploadBytesGetResponses, GetConfigApiV1ConfigMaxUploadBytesGetErrors, ThrowOnError> => (options?.client ?? client).get<GetConfigApiV1ConfigMaxUploadBytesGetResponses, GetConfigApiV1ConfigMaxUploadBytesGetErrors, ThrowOnError>({ url: '/api/v1/config/max-upload-bytes', ...options });

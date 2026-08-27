@@ -28,6 +28,7 @@ from psycopg import AsyncConnection
 from psycopg.errors import UniqueViolation
 from psycopg_pool import AsyncConnectionPool
 from pydantic import BaseModel
+from starlette.middleware.body_limit import RequestBodyLimitMiddleware
 from starlette.status import (
     HTTP_200_OK,
     HTTP_201_CREATED,
@@ -109,7 +110,6 @@ async def get_db_conn() -> AsyncGenerator[AsyncConnection]:
     async with db_conn_pool.connection() as conn:
 	    yield conn
 
-
 DBConn = Annotated[AsyncConnection, Depends(get_db_conn)]
 IPAddr = Annotated[str | None, Depends(get_ip_addr)]
 
@@ -122,6 +122,11 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+app.add_middleware(
+    RequestBodyLimitMiddleware,
+    max_body_size=int(config[ConfigKey.APP_MAX_UPLOAD_BYTES]) + 1_048_576,
 )
 
 class Message(BaseModel):
@@ -190,13 +195,6 @@ async def add_binary_stash(file: UploadFile, db_conn: DBConn, ip_addr: IPAddr) -
             raise HTTPException(
                 HTTP_422_UNPROCESSABLE_CONTENT,
                 "The uploaded file is empty or corrupted",
-            )
-
-        max_allowed_bytes = int(config[ConfigKey.APP_MAX_UPLOAD_BYTES])
-        if file.size > max_allowed_bytes:
-            raise HTTPException(
-                HTTP_413_CONTENT_TOO_LARGE, 
-                f"The uploaded file is too large (max size: {max_allowed_bytes} bytes)"
             )
 
         uuid_str = uuid4().hex
@@ -317,3 +315,7 @@ async def get_stash_views(slug: str, unique: bool, db_conn: DBConn) -> int:
         raise RuntimeError(f"Could not get views for slug {slug}")
     
     return views
+
+@api_router.get("/config/max-upload-bytes", status_code=HTTP_200_OK, response_model=int)
+async def get_config() -> int:
+    return int(config[ConfigKey.APP_MAX_UPLOAD_BYTES])

@@ -1,6 +1,7 @@
 import {
 	addBinaryStashApiV1StashesFilePost,
 	addTextStashApiV1StashesTextPost,
+	getConfigApiV1ConfigMaxUploadBytesGet
 } from '$lib/client';
 
 import { createUploadClient } from '$lib/upload-client';
@@ -10,12 +11,16 @@ export type CreatedStash = {
 };
 
 function getErrorMessage(error: unknown, fallback: string): string {
-	if (
-		typeof error === 'object' &&
-		error !== null &&
-		'detail' in error
-	) {
+	if (typeof error !== 'object' || error === null) {
+		return fallback;
+	}
+
+	if ('detail' in error) {
 		return String(error.detail);
+	}
+
+	if ('message' in error) {
+		return String(error.message);
 	}
 
 	return fallback;
@@ -27,16 +32,42 @@ export async function createStash(
 	onProgress: (loaded: number, total: number) => void,
 ): Promise<CreatedStash> {
 	if (file && file.size > 0) {
-		const client = createUploadClient(onProgress);
+		const configResponse =
+			await getConfigApiV1ConfigMaxUploadBytesGet();
 
-		const response = await addBinaryStashApiV1StashesFilePost({
-			client,
-			body: { file },
-		});
+		if (configResponse.error) {
+			throw new Error(
+				getErrorMessage(
+					configResponse.error,
+					'Could not determine maximum upload size',
+				),
+			);
+		}
+
+		const maxUploadBytes = configResponse.data;
+
+		if (file.size > maxUploadBytes) {
+			throw new Error(
+				`The selected file is too large. Maximum bytes is ${maxUploadBytes}`,
+			);
+		}
+
+		const client = createUploadClient(
+			onProgress,
+		);
+
+		const response =
+			await addBinaryStashApiV1StashesFilePost({
+				client,
+				body: { file },
+			});
 
 		if (response.error) {
 			throw new Error(
-				getErrorMessage(response.error, 'Upload failed'),
+				getErrorMessage(
+					response.error,
+					'Upload failed',
+				),
 			);
 		}
 
@@ -44,13 +75,17 @@ export async function createStash(
 	}
 
 	if (text.trim() !== '') {
-		const response = await addTextStashApiV1StashesTextPost({
-			body: text,
-		});
+		const response =
+			await addTextStashApiV1StashesTextPost({
+				body: text,
+			});
 
 		if (response.error) {
 			throw new Error(
-				getErrorMessage(response.error, 'Request failed'),
+				getErrorMessage(
+					response.error,
+					'Request failed',
+				),
 			);
 		}
 
