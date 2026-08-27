@@ -85,7 +85,13 @@ for config_key in ConfigKey:
 
 
 db_conn_string = f"postgresql://{config[ConfigKey.DB_USERNAME]}:{config[ConfigKey.DB_PASSWORD]}@{config[ConfigKey.DB_HOST]}:{config[ConfigKey.DB_PORT]}/{config[ConfigKey.DB_DATABASE]}"
-db_conn_pool = AsyncConnectionPool(db_conn_string, open=False)
+db_conn_pool = AsyncConnectionPool(
+    db_conn_string,
+    open=False,
+    min_size=5,        # Keep 5 connections ready
+    max_size=20,       # Allow up to 20 connections
+    timeout=30,        # 30s connection timeout
+)
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
