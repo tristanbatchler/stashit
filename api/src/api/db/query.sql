@@ -14,7 +14,8 @@ SELECT
     expires,
     ip_address
 FROM oauth_states
-WHERE state = $1;
+WHERE state = $1
+  AND expires > NOW();
 
 -- name: DeleteOAuthState :one
 DELETE FROM oauth_states
@@ -33,6 +34,18 @@ DO UPDATE SET
     email = EXCLUDED.email,
     last_login = CURRENT_TIMESTAMP
 RETURNING *;
+
+-- name: GetUserBySessionTokenHash :one
+SELECT 
+    u.id,
+    u.google_sub,
+    u.email,
+    u.created,
+    u.last_login
+FROM users u
+INNER JOIN sessions s ON u.id = s.user_id
+WHERE s.token_hash = $1 
+  AND s.expires > NOW();
 
 
 -- name: CreateSession :exec

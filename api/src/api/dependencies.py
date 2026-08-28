@@ -1,11 +1,14 @@
+import hashlib
 import logging
 from collections.abc import Callable
 from pathlib import Path
 from typing import Annotated, cast
 
-from fastapi import Depends, FastAPI, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from psycopg import AsyncConnection
+from starlette.status import HTTP_401_UNAUTHORIZED
 
+from .db import models, query
 from .db.ops import get_db_conn
 from .settings import settings
 
@@ -34,3 +37,34 @@ def get_named_route_uri(request: Request) -> Callable[[str], str]:
 DBConn = Annotated[AsyncConnection, Depends(get_db_conn)]
 IPAddr = Annotated[str | None, Depends(get_ip_addr)]
 NamedRouteURIs = Annotated[Callable[[str], str], Depends(get_named_route_uri)]
+
+
+async def get_current_user(
+    request: Request,
+    db_conn: DBConn,
+) -> models.User:
+    session_token = request.cookies.get("session")
+
+    if session_token is None:
+        raise HTTPException(
+            status_code=HTTP_401_UNAUTHORIZED,
+            detail="Authentication required",
+        )
+
+    token_hash = hashlib.sha256(session_token.encode()).hexdigest()
+
+    user = await query.get_user_by_session_token_hash(
+        db_conn,
+        token_hash=token_hash,
+    )
+
+    if user is None:
+        raise HTTPException(
+            status_code=HTTP_401_UNAUTHORIZED,
+            detail="Invalid or expired session",
+        )
+
+    return user
+
+
+CurrentUser = Annotated[models.User, Depends(get_current_user)]

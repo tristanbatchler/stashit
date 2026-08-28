@@ -42,18 +42,17 @@ __all__: collections.abc.Sequence[str] = (
     "get_stash_unique_views_by_slug",
     "get_stash_views",
     "get_stash_views_by_slug",
+    "get_user_by_session_token_hash",
     "list_stashes",
     "upsert_user",
 )
 
 import datetime
-import typing
-
 import pydantic
+import typing
 
 if typing.TYPE_CHECKING:
     import collections.abc
-
     import psycopg
     import psycopg.rows
 
@@ -145,6 +144,7 @@ SELECT
     ip_address
 FROM oauth_states
 WHERE state = %(p1)s
+  AND expires > NOW()
 """
 
 DELETE_O_AUTH_STATE: typing.Final[typing.LiteralString] = """-- name: DeleteOAuthState :one
@@ -164,6 +164,19 @@ DO UPDATE SET
     email = EXCLUDED.email,
     last_login = CURRENT_TIMESTAMP
 RETURNING id, google_sub, email, created, last_login
+"""
+
+GET_USER_BY_SESSION_TOKEN_HASH: typing.Final[typing.LiteralString] = """-- name: GetUserBySessionTokenHash :one
+SELECT 
+    u.id,
+    u.google_sub,
+    u.email,
+    u.created,
+    u.last_login
+FROM users u
+INNER JOIN sessions s ON u.id = s.user_id
+WHERE s.token_hash = %(p1)s 
+  AND s.expires > NOW()
 """
 
 CREATE_SESSION: typing.Final[typing.LiteralString] = """-- name: CreateSession :exec
@@ -447,6 +460,13 @@ async def delete_o_auth_state(conn: ConnectionLike, *, state: str) -> models.Oau
 
 async def upsert_user(conn: ConnectionLike, *, google_sub: str, email: str) -> models.User | None:
     row = await (await conn.execute(UPSERT_USER, {"p1": google_sub, "p2": email})).fetchone()
+    if row is None:
+        return None
+    return models.User(id_=row[0], google_sub=row[1], email=row[2], created=row[3], last_login=row[4])
+
+
+async def get_user_by_session_token_hash(conn: ConnectionLike, *, token_hash: str) -> models.User | None:
+    row = await (await conn.execute(GET_USER_BY_SESSION_TOKEN_HASH, {"p1": token_hash})).fetchone()
     if row is None:
         return None
     return models.User(id_=row[0], google_sub=row[1], email=row[2], created=row[3], last_login=row[4])

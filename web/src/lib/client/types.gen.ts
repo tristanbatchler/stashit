@@ -109,6 +109,32 @@ export type Message = {
 };
 
 /**
+ * User
+ */
+export type User = {
+    /**
+     * Id
+     */
+    id_: number;
+    /**
+     * Google Sub
+     */
+    google_sub: string;
+    /**
+     * Email
+     */
+    email: string;
+    /**
+     * Created
+     */
+    created: string;
+    /**
+     * Last Login
+     */
+    last_login: string;
+};
+
+/**
  * ValidationError
  */
 export type ValidationError = {
@@ -415,19 +441,16 @@ export type GoogleLoginApiV1AuthGoogleGetData = {
 
 export type GoogleLoginApiV1AuthGoogleGetErrors = {
     /**
+     * Unauthorized
+     */
+    401: Message;
+    /**
      * Internal Server Error
      */
     500: Message;
 };
 
 export type GoogleLoginApiV1AuthGoogleGetError = GoogleLoginApiV1AuthGoogleGetErrors[keyof GoogleLoginApiV1AuthGoogleGetErrors];
-
-export type GoogleLoginApiV1AuthGoogleGetResponses = {
-    /**
-     * Successful Response
-     */
-    200: unknown;
-};
 
 export type GoogleCallbackApiV1AuthGoogleCallbackGetData = {
     body?: never;
@@ -447,6 +470,10 @@ export type GoogleCallbackApiV1AuthGoogleCallbackGetData = {
 
 export type GoogleCallbackApiV1AuthGoogleCallbackGetErrors = {
     /**
+     * Bad Request
+     */
+    400: Message;
+    /**
      * Validation Error
      */
     422: HttpValidationError;
@@ -458,12 +485,30 @@ export type GoogleCallbackApiV1AuthGoogleCallbackGetErrors = {
 
 export type GoogleCallbackApiV1AuthGoogleCallbackGetError = GoogleCallbackApiV1AuthGoogleCallbackGetErrors[keyof GoogleCallbackApiV1AuthGoogleCallbackGetErrors];
 
-export type GoogleCallbackApiV1AuthGoogleCallbackGetResponses = {
+export type GetMeApiV1AuthGoogleMeGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/google/me';
+};
+
+export type GetMeApiV1AuthGoogleMeGetErrors = {
+    /**
+     * Internal Server Error
+     */
+    500: Message;
+};
+
+export type GetMeApiV1AuthGoogleMeGetError = GetMeApiV1AuthGoogleMeGetErrors[keyof GetMeApiV1AuthGoogleMeGetErrors];
+
+export type GetMeApiV1AuthGoogleMeGetResponses = {
     /**
      * Successful Response
      */
-    200: unknown;
+    200: User;
 };
+
+export type GetMeApiV1AuthGoogleMeGetResponse = GetMeApiV1AuthGoogleMeGetResponses[keyof GetMeApiV1AuthGoogleMeGetResponses];
 
 export type GetConfigApiV1ConfigMaxUploadBytesGetData = {
     body?: never;

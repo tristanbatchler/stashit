@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import secrets
 from datetime import UTC, datetime, timedelta
@@ -8,6 +9,8 @@ from fastapi.responses import RedirectResponse
 from google.auth.transport import requests
 from google.oauth2 import id_token
 from starlette.status import (
+    HTTP_200_OK,
+    HTTP_302_FOUND,
     HTTP_303_SEE_OTHER,
     HTTP_400_BAD_REQUEST,
     HTTP_401_UNAUTHORIZED,
@@ -15,8 +18,9 @@ from starlette.status import (
 )
 
 from ..auth_service import create_google_flow
-from ..db import query
-from ..dependencies import DBConn, IPAddr, NamedRouteURIs
+from ..db import models, query
+from ..dependencies import CurrentUser, DBConn, IPAddr, NamedRouteURIs
+from ..response_models import Message
 from ..settings import settings
 
 logger = logging.getLogger(__name__)
@@ -26,7 +30,11 @@ router = APIRouter(prefix="/auth/google")
 GOOGLE_CALLBACK_ROUTE_ID = "google_callback"
 
 
-@router.get("")
+@router.get(
+    "",
+    status_code=HTTP_302_FOUND,
+    responses={HTTP_401_UNAUTHORIZED: {"model": Message}},
+)
 async def google_login(
     db_conn: DBConn,
     ip_addr: IPAddr,
@@ -68,10 +76,15 @@ async def google_login(
             ip_address=ip_addr,
         )
 
-    return RedirectResponse(authorization_url)
+    return RedirectResponse(authorization_url, status_code=HTTP_302_FOUND)
 
 
-@router.get("/callback", name=GOOGLE_CALLBACK_ROUTE_ID)
+@router.get(
+    "/callback",
+    name=GOOGLE_CALLBACK_ROUTE_ID,
+    status_code=HTTP_303_SEE_OTHER,
+    responses={HTTP_400_BAD_REQUEST: {"model": Message}},
+)
 async def google_callback(
     code: str,
     state: str,
@@ -114,18 +127,31 @@ async def google_callback(
     )
 
     sub = google_identity.get("sub")
-    if not sub or not isinstance(sub, str):
+    if not isinstance(sub, str):
         raise HTTPException(
             status_code=HTTP_400_BAD_REQUEST,
             detail="Google identity does not contain sub",
         )
 
+    email = google_identity.get("email")
+    if not isinstance(email, str):
+        raise HTTPException(
+            status_code=HTTP_400_BAD_REQUEST,
+            detail="Google identity does not contain email",
+        )
+
     logger.info(
         "Google OAuth successful: sub=%s email=%s name=%s picture=%s",
         sub,
-        google_identity.get("email"),
+        email,
         google_identity.get("name"),
         google_identity.get("picture"),
+    )
+
+    session_token = secrets.token_urlsafe(32)
+    session_token_hash = hashlib.sha256(session_token.encode()).hexdigest()
+    session_expires = datetime.now(UTC) + timedelta(
+        days=settings.APP_SESSION_DURATION_DAYS
     )
 
     async with db_conn.transaction():
@@ -134,7 +160,35 @@ async def google_callback(
             state=state,
         )
 
-    return RedirectResponse(
+        user = await query.upsert_user(db_conn, google_sub=sub, email=email)
+
+        if user is None:
+            raise HTTPException(HTTP_500_INTERNAL_SERVER_ERROR, "Error upserting user")
+
+        await query.create_session(
+            db_conn,
+            user_id=user.id_,
+            token_hash=session_token_hash,
+            expires=session_expires,
+        )
+
+    redirect = RedirectResponse(
         settings.WEB_BASE_URL,
         status_code=HTTP_303_SEE_OTHER,
     )
+
+    redirect.set_cookie(
+        key="session",
+        value=session_token,
+        httponly=True,
+        secure=settings.APP_SESSION_COOKIE_SECURE,
+        samesite="lax",
+        max_age=60 * 60 * 24 * settings.APP_SESSION_DURATION_DAYS,
+    )
+
+    return redirect
+
+
+@router.get("/me", response_model=models.User, status_code=HTTP_200_OK)
+async def get_me(current_user: CurrentUser) -> models.User:
+    return current_user

@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddBinaryStashApiV1StashesFilePostData, AddBinaryStashApiV1StashesFilePostErrors, AddBinaryStashApiV1StashesFilePostResponses, AddTextStashApiV1StashesTextPostData, AddTextStashApiV1StashesTextPostErrors, AddTextStashApiV1StashesTextPostResponses, GetConfigApiV1ConfigMaxUploadBytesGetData, GetConfigApiV1ConfigMaxUploadBytesGetErrors, GetConfigApiV1ConfigMaxUploadBytesGetResponses, GetFileStashApiV1StashesFileSlugGetData, GetFileStashApiV1StashesFileSlugGetErrors, GetFileStashApiV1StashesFileSlugGetResponses, GetStashMetadataApiV1StashesMetadataSlugGetData, GetStashMetadataApiV1StashesMetadataSlugGetErrors, GetStashMetadataApiV1StashesMetadataSlugGetResponses, GetStashViewsApiV1StashesViewsSlugGetData, GetStashViewsApiV1StashesViewsSlugGetErrors, GetStashViewsApiV1StashesViewsSlugGetResponses, GetTextStashApiV1StashesTextSlugGetData, GetTextStashApiV1StashesTextSlugGetErrors, GetTextStashApiV1StashesTextSlugGetResponses, GoogleCallbackApiV1AuthGoogleCallbackGetData, GoogleCallbackApiV1AuthGoogleCallbackGetErrors, GoogleCallbackApiV1AuthGoogleCallbackGetResponses, GoogleLoginApiV1AuthGoogleGetData, GoogleLoginApiV1AuthGoogleGetErrors, GoogleLoginApiV1AuthGoogleGetResponses, ListStashesApiV1StashesGetData, ListStashesApiV1StashesGetErrors, ListStashesApiV1StashesGetResponses } from './types.gen';
+import type { AddBinaryStashApiV1StashesFilePostData, AddBinaryStashApiV1StashesFilePostErrors, AddBinaryStashApiV1StashesFilePostResponses, AddTextStashApiV1StashesTextPostData, AddTextStashApiV1StashesTextPostErrors, AddTextStashApiV1StashesTextPostResponses, GetConfigApiV1ConfigMaxUploadBytesGetData, GetConfigApiV1ConfigMaxUploadBytesGetErrors, GetConfigApiV1ConfigMaxUploadBytesGetResponses, GetFileStashApiV1StashesFileSlugGetData, GetFileStashApiV1StashesFileSlugGetErrors, GetFileStashApiV1StashesFileSlugGetResponses, GetMeApiV1AuthGoogleMeGetData, GetMeApiV1AuthGoogleMeGetErrors, GetMeApiV1AuthGoogleMeGetResponses, GetStashMetadataApiV1StashesMetadataSlugGetData, GetStashMetadataApiV1StashesMetadataSlugGetErrors, GetStashMetadataApiV1StashesMetadataSlugGetResponses, GetStashViewsApiV1StashesViewsSlugGetData, GetStashViewsApiV1StashesViewsSlugGetErrors, GetStashViewsApiV1StashesViewsSlugGetResponses, GetTextStashApiV1StashesTextSlugGetData, GetTextStashApiV1StashesTextSlugGetErrors, GetTextStashApiV1StashesTextSlugGetResponses, GoogleCallbackApiV1AuthGoogleCallbackGetData, GoogleCallbackApiV1AuthGoogleCallbackGetErrors, GoogleLoginApiV1AuthGoogleGetData, GoogleLoginApiV1AuthGoogleGetErrors, ListStashesApiV1StashesGetData, ListStashesApiV1StashesGetErrors, ListStashesApiV1StashesGetResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -71,12 +71,17 @@ export const getStashViewsApiV1StashesViewsSlugGet = <ThrowOnError extends boole
 /**
  * Google Login
  */
-export const googleLoginApiV1AuthGoogleGet = <ThrowOnError extends boolean = false>(options?: Options<GoogleLoginApiV1AuthGoogleGetData, ThrowOnError>): RequestResult<GoogleLoginApiV1AuthGoogleGetResponses, GoogleLoginApiV1AuthGoogleGetErrors, ThrowOnError> => (options?.client ?? client).get<GoogleLoginApiV1AuthGoogleGetResponses, GoogleLoginApiV1AuthGoogleGetErrors, ThrowOnError>({ url: '/api/v1/auth/google', ...options });
+export const googleLoginApiV1AuthGoogleGet = <ThrowOnError extends boolean = false>(options?: Options<GoogleLoginApiV1AuthGoogleGetData, ThrowOnError>): RequestResult<unknown, GoogleLoginApiV1AuthGoogleGetErrors, ThrowOnError> => (options?.client ?? client).get<unknown, GoogleLoginApiV1AuthGoogleGetErrors, ThrowOnError>({ url: '/api/v1/auth/google', ...options });
 
 /**
  * Google Callback
  */
-export const googleCallbackApiV1AuthGoogleCallbackGet = <ThrowOnError extends boolean = false>(options: Options<GoogleCallbackApiV1AuthGoogleCallbackGetData, ThrowOnError>): RequestResult<GoogleCallbackApiV1AuthGoogleCallbackGetResponses, GoogleCallbackApiV1AuthGoogleCallbackGetErrors, ThrowOnError> => (options.client ?? client).get<GoogleCallbackApiV1AuthGoogleCallbackGetResponses, GoogleCallbackApiV1AuthGoogleCallbackGetErrors, ThrowOnError>({ url: '/api/v1/auth/google/callback', ...options });
+export const googleCallbackApiV1AuthGoogleCallbackGet = <ThrowOnError extends boolean = false>(options: Options<GoogleCallbackApiV1AuthGoogleCallbackGetData, ThrowOnError>): RequestResult<unknown, GoogleCallbackApiV1AuthGoogleCallbackGetErrors, ThrowOnError> => (options.client ?? client).get<unknown, GoogleCallbackApiV1AuthGoogleCallbackGetErrors, ThrowOnError>({ url: '/api/v1/auth/google/callback', ...options });
+
+/**
+ * Get Me
+ */
+export const getMeApiV1AuthGoogleMeGet = <ThrowOnError extends boolean = false>(options?: Options<GetMeApiV1AuthGoogleMeGetData, ThrowOnError>): RequestResult<GetMeApiV1AuthGoogleMeGetResponses, GetMeApiV1AuthGoogleMeGetErrors, ThrowOnError> => (options?.client ?? client).get<GetMeApiV1AuthGoogleMeGetResponses, GetMeApiV1AuthGoogleMeGetErrors, ThrowOnError>({ url: '/api/v1/auth/google/me', ...options });
 
 /**
  * Get Config

@@ -27,6 +27,7 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_ID: str = Field(default=...)
     GOOGLE_CLIENT_SECRET: str = Field(default=...)
     APP_SESSION_DURATION_DAYS: int = Field(default=30, gt=0)
+    APP_SESSION_COOKIE_SECURE: bool = Field(default=True)
 
     model_config: ClassVar[SettingsConfigDict] = SettingsConfigDict(
         env_file=app_directory / "settings.env",
