@@ -10,7 +10,7 @@
             "request": "launch",
             "module": "uvicorn",
             "args": [
-                "main:app",
+                "api.main:app",
                 "--reload"
             ],
             "cwd": "${workspaceFolder}/api",

@@ -1,3 +1,38 @@
+-- name: CreateOAuthState :exec
+INSERT INTO oauth_states (
+    state_hash,
+    expires
+)
+VALUES ($1, $2);
+
+
+-- name: ConsumeOAuthState :one
+DELETE FROM oauth_states
+WHERE state_hash = $1
+RETURNING expires;
+
+
+-- name: UpsertUser :one
+INSERT INTO users (
+    google_sub,
+    email
+)
+VALUES ($1, $2)
+ON CONFLICT (google_sub)
+DO UPDATE SET
+    email = EXCLUDED.email,
+    last_login = CURRENT_TIMESTAMP
+RETURNING *;
+
+
+-- name: CreateSession :exec
+INSERT INTO sessions (
+    user_id,
+    token_hash,
+    expires
+)
+VALUES ($1, $2, $3);
+
 -- name: GetStash :one
 SELECT
     id,

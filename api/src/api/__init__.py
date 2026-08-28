@@ -1,2 +1,3 @@
-def main() -> None:
-    print("Hello from api!")
+from pathlib import Path
+
+app_directory = Path(__file__).parent.parent.parent.parent

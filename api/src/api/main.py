@@ -2,8 +2,7 @@ import logging
 from collections.abc import AsyncGenerator, Awaitable, Callable, Sequence
 from contextlib import asynccontextmanager
 from pathlib import Path
-from sys import exit
-from typing import Annotated, ClassVar, cast
+from typing import Annotated
 from uuid import uuid4
 
 import aiofiles
@@ -22,9 +21,7 @@ from fastapi.responses import FileResponse
 from psycopg import AsyncConnection
 from psycopg.errors import UniqueViolation
 from psycopg_pool import AsyncConnectionPool
-from pydantic import BaseModel, Field
-from pydantic_core import PydanticUndefined
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import BaseModel
 from starlette.middleware.body_limit import RequestBodyLimitMiddleware
 from starlette.status import (
     HTTP_200_OK,
@@ -37,57 +34,12 @@ from starlette.status import (
     HTTP_500_INTERNAL_SERVER_ERROR,
 )
 
-from db import models, ops, query
-from slug_service import new_slug
+from db import ops, query
+
+from .settings import settings
+from .slug_service import new_slug
 
 logger = logging.getLogger(Path(__file__).name)
-
-app_directory = Path(__file__).parent.parent
-
-
-class Settings(BaseSettings):
-    DB_DATABASE: str = Field(default=...)
-    DB_USERNAME: str = Field(default=...)
-    DB_PASSWORD: str = Field(default=...)
-    DB_HOST: str = Field(default=...)
-    DB_PORT: int = Field(default=5432, ge=0, le=0xFFFF)
-    APP_BASE_URL: str = Field(default=...)
-    APP_MAX_UPLOAD_BYTES: int = Field(default=0x140000000, ge=1)
-    APP_MAX_PAGE_TAKE: int = Field(default=200, ge=1)
-    APP_NON_UPLOAD_MAX_BODY_SIZE: int = Field(default=0x100000, gt=1)
-    APP_UPLOADS_STREAMING_CHUNK_SIZE: int = Field(default=0x10000, gt=1)
-
-    model_config: ClassVar[SettingsConfigDict] = SettingsConfigDict(
-        env_file=app_directory / "settings.env",
-        extra="ignore",
-        env_ignore_empty=True,
-    )
-
-
-# Write the settings example file based on Settings defaults
-example_lines: list[str] = []
-for field_name, field_info in Settings.model_fields.items():
-    default = cast(object, field_info.default)
-    if default is not PydanticUndefined:
-        line = f"# {field_name} = {default} # Optional"
-    else:
-        line = f"{field_name} = "
-    example_lines.append(line)
-
-example_text = "\n".join(example_lines)
-example_settings_path = app_directory / "settings.example.env"
-_ = example_settings_path.write_text(example_text)
-
-# If the settings file doesn't exist, copy the example on there too
-settings_path = app_directory / "settings.env"
-if not settings_path.is_file():
-    _ = settings_path.write_text(example_text)
-    logging.fatal(
-        f"Settings file {settings_path} not present so I have created it for you - please fill out the required fields"
-    )
-    exit(1)
-
-settings = Settings()
 
 
 db_conn_string = f"postgresql://{settings.DB_USERNAME}:{settings.DB_PASSWORD}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_DATABASE}"
@@ -152,17 +104,37 @@ api_router = APIRouter(
     prefix="/api/v1", responses={HTTP_500_INTERNAL_SERVER_ERROR: {"model": Message}}
 )
 stashes_router = APIRouter(prefix="/stashes")
+google_auth_router = APIRouter(prefix="/auth/google")
+
 
 api_router.include_router(stashes_router)
+api_router.include_router(google_auth_router)
 app.include_router(api_router)
 
+# @google_auth_router.get("", ...)
+# def ...
 
-@stashes_router.get("/", status_code=HTTP_200_OK, response_model=Sequence[models.Stash])
+GOOGLE_CALLBACK_NAME = "google_callback"
+
+
+@google_auth_router.get("/callback", name=GOOGLE_CALLBACK_NAME)
+async def google_callback():
+    return {"status": "ok"}
+
+
+google_redirect_uri: str = settings.APP_BASE_URL + app.url_path_for(
+    GOOGLE_CALLBACK_NAME
+)
+
+
+@stashes_router.get(
+    "/", status_code=HTTP_200_OK, response_model=Sequence[query.ListStashesRow]
+)
 async def list_stashes(
     page: Annotated[int, Query(gt=0)],
     take: Annotated[int, Query(lt=settings.APP_MAX_PAGE_TAKE, gt=0)],
     db_conn: DBConn,
-) -> Sequence[models.Stash]:
+) -> Sequence[query.ListStashesRow]:
     return await query.list_stashes(db_conn, limit=take, offset=(page - 1) * take)
 
 
@@ -244,6 +216,7 @@ async def add_binary_stash(
         )
 
     try:
+        app_directory = Path(__file__).parent.parent
         uploads_dir = app_directory / "uploads"
         uploads_dir.mkdir(exist_ok=True)
 
@@ -398,10 +371,10 @@ async def get_text_stash(slug: str, db_conn: DBConn, ip_addr: IPAddr) -> str:
 @stashes_router.get(
     "/metadata/{slug}",
     status_code=HTTP_200_OK,
-    response_model=models.Stash,
+    response_model=query.GetStashBySlugRow,
     responses={HTTP_404_NOT_FOUND: {"model": Message}},
 )
-async def get_stash_metadata(slug: str, db_conn: DBConn) -> models.Stash:
+async def get_stash_metadata(slug: str, db_conn: DBConn) -> query.GetStashBySlugRow:
     stash = await query.get_stash_by_slug(db_conn, slug=slug)
     if stash is None:
         raise HTTPException(

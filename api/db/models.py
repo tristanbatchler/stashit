@@ -5,6 +5,8 @@
 from __future__ import annotations
 
 __all__: collections.abc.Sequence[str] = (
+    "OauthState",
+    "Session",
     "Stash",
     "StashLockout",
     "StashPasswordAttempt",
@@ -15,6 +17,7 @@ __all__: collections.abc.Sequence[str] = (
     "StashesPasswordHash",
     "StashesRevocation",
     "StashesTextContent",
+    "User",
 )
 
 import datetime
@@ -25,6 +28,25 @@ if typing.TYPE_CHECKING:
     import collections.abc
 
 
+class OauthState(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
+
+    state_hash: str
+    created: datetime.datetime
+    expires: datetime.datetime
+
+
+class Session(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
+
+    id_: int
+    user_id: int
+    token_hash: str
+    created: datetime.datetime
+    expires: datetime.datetime
+    last_used: datetime.datetime
+
+
 class Stash(pydantic.BaseModel):
     model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
 
@@ -33,6 +55,7 @@ class Stash(pydantic.BaseModel):
     slug: str
     added: datetime.datetime
     added_by_ip: str
+    added_by_user_id: int | None
 
 
 class StashLockout(pydantic.BaseModel):
@@ -104,3 +127,13 @@ class StashesTextContent(pydantic.BaseModel):
 
     stash_id: int
     content: str
+
+
+class User(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
+
+    id_: int
+    google_sub: str
+    email: str
+    created: datetime.datetime
+    last_login: datetime.datetime

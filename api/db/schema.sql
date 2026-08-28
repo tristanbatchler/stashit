@@ -1,11 +1,55 @@
-CREATE TABLE IF NOT EXISTS stashes
+CREATE TABLE IF NOT EXISTS users
 (
     id          BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    is_binary   BOOLEAN NOT NULL,
-    slug        TEXT NOT NULL,
-    added       TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    added_by_ip INET NOT NULL,
+    google_sub  TEXT NOT NULL UNIQUE,
+    email       TEXT NOT NULL,
+    created     TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    last_login  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
 
+CREATE TABLE IF NOT EXISTS sessions
+(
+    id         BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    user_id    BIGINT NOT NULL
+               REFERENCES users (id) ON DELETE CASCADE,
+    token_hash TEXT NOT NULL UNIQUE,
+    created    TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires    TIMESTAMPTZ NOT NULL,
+    last_used  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT chk_sessions_expiry
+        CHECK (expires > created)
+);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_user_id
+    ON sessions (user_id);
+
+CREATE INDEX IF NOT EXISTS idx_sessions_expires
+    ON sessions (expires);
+
+CREATE TABLE IF NOT EXISTS oauth_states
+(
+    state_hash TEXT PRIMARY KEY,
+    created    TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires    TIMESTAMPTZ NOT NULL,
+
+    CONSTRAINT chk_oauth_states_expiry
+        CHECK (expires > created)
+);
+
+CREATE INDEX IF NOT EXISTS idx_oauth_states_expires
+    ON oauth_states (expires);
+
+CREATE TABLE IF NOT EXISTS stashes
+(
+    id               BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    is_binary        BOOLEAN NOT NULL,
+    slug             TEXT NOT NULL,
+    added            TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    added_by_ip      INET NOT NULL,
+    added_by_user_id BIGINT
+                     REFERENCES users (id) ON DELETE SET NULL,
+    
     CONSTRAINT uq_stashes_slug UNIQUE (slug)
 );
 

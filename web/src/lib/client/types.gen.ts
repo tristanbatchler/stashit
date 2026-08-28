@@ -37,29 +37,9 @@ export type CreateStashRow = {
 };
 
 /**
- * HTTPValidationError
+ * GetStashBySlugRow
  */
-export type HttpValidationError = {
-    /**
-     * Detail
-     */
-    detail?: Array<ValidationError>;
-};
-
-/**
- * Message
- */
-export type Message = {
-    /**
-     * Detail
-     */
-    detail: string;
-};
-
-/**
- * Stash
- */
-export type Stash = {
+export type GetStashBySlugRow = {
     /**
      * Id
      */
@@ -80,6 +60,52 @@ export type Stash = {
      * Added By Ip
      */
     added_by_ip: string;
+};
+
+/**
+ * HTTPValidationError
+ */
+export type HttpValidationError = {
+    /**
+     * Detail
+     */
+    detail?: Array<ValidationError>;
+};
+
+/**
+ * ListStashesRow
+ */
+export type ListStashesRow = {
+    /**
+     * Id
+     */
+    id_: number;
+    /**
+     * Is Binary
+     */
+    is_binary: boolean;
+    /**
+     * Slug
+     */
+    slug: string;
+    /**
+     * Added
+     */
+    added: string;
+    /**
+     * Added By Ip
+     */
+    added_by_ip: string;
+};
+
+/**
+ * Message
+ */
+export type Message = {
+    /**
+     * Detail
+     */
+    detail: string;
 };
 
 /**
@@ -145,7 +171,7 @@ export type ListStashesApiV1StashesGetResponses = {
      *
      * Successful Response
      */
-    200: Array<Stash>;
+    200: Array<ListStashesRow>;
 };
 
 export type ListStashesApiV1StashesGetResponse = ListStashesApiV1StashesGetResponses[keyof ListStashesApiV1StashesGetResponses];
@@ -334,7 +360,7 @@ export type GetStashMetadataApiV1StashesMetadataSlugGetResponses = {
     /**
      * Successful Response
      */
-    200: Stash;
+    200: GetStashBySlugRow;
 };
 
 export type GetStashMetadataApiV1StashesMetadataSlugGetResponse = GetStashMetadataApiV1StashesMetadataSlugGetResponses[keyof GetStashMetadataApiV1StashesMetadataSlugGetResponses];

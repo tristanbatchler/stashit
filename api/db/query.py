@@ -8,9 +8,15 @@ from __future__ import annotations
 __all__: collections.abc.Sequence[str] = (
     "CreateStashRow",
     "GetActiveStashLockoutRow",
+    "GetStashBySlugRow",
     "GetStashRevocationRow",
+    "GetStashRow",
+    "ListStashesRow",
     "QueryResults",
     "check_slug_exists",
+    "consume_o_auth_state",
+    "create_o_auth_state",
+    "create_session",
     "create_stash",
     "create_stash_binary_path",
     "create_stash_expiry",
@@ -35,6 +41,7 @@ __all__: collections.abc.Sequence[str] = (
     "get_stash_views",
     "get_stash_views_by_slug",
     "list_stashes",
+    "upsert_user",
 )
 
 import datetime
@@ -51,6 +58,36 @@ if typing.TYPE_CHECKING:
     type ConnectionLike = psycopg.AsyncConnection[psycopg.rows.TupleRow]
 
 from db import models
+
+
+class GetStashRow(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
+
+    id_: int
+    is_binary: bool
+    slug: str
+    added: datetime.datetime
+    added_by_ip: str
+
+
+class GetStashBySlugRow(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
+
+    id_: int
+    is_binary: bool
+    slug: str
+    added: datetime.datetime
+    added_by_ip: str
+
+
+class ListStashesRow(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
+
+    id_: int
+    is_binary: bool
+    slug: str
+    added: datetime.datetime
+    added_by_ip: str
 
 
 class CreateStashRow(pydantic.BaseModel):
@@ -76,6 +113,42 @@ class GetStashRevocationRow(pydantic.BaseModel):
     revoked_at: datetime.datetime
     revoked_by_ip: str
 
+
+CREATE_O_AUTH_STATE: typing.Final[typing.LiteralString] = """-- name: CreateOAuthState :exec
+INSERT INTO oauth_states (
+    state_hash,
+    expires
+)
+VALUES (%(p1)s, %(p2)s)
+"""
+
+CONSUME_O_AUTH_STATE: typing.Final[typing.LiteralString] = """-- name: ConsumeOAuthState :one
+DELETE FROM oauth_states
+WHERE state_hash = %(p1)s
+RETURNING expires
+"""
+
+UPSERT_USER: typing.Final[typing.LiteralString] = """-- name: UpsertUser :one
+INSERT INTO users (
+    google_sub,
+    email
+)
+VALUES (%(p1)s, %(p2)s)
+ON CONFLICT (google_sub)
+DO UPDATE SET
+    email = EXCLUDED.email,
+    last_login = CURRENT_TIMESTAMP
+RETURNING id, google_sub, email, created, last_login
+"""
+
+CREATE_SESSION: typing.Final[typing.LiteralString] = """-- name: CreateSession :exec
+INSERT INTO sessions (
+    user_id,
+    token_hash,
+    expires
+)
+VALUES (%(p1)s, %(p2)s, %(p3)s)
+"""
 
 GET_STASH: typing.Final[typing.LiteralString] = """-- name: GetStash :one
 SELECT
@@ -329,23 +402,45 @@ class QueryResults[T]:
         return self._decode_hook(record)
 
 
-async def get_stash(conn: ConnectionLike, *, id_: int) -> models.Stash | None:
+async def create_o_auth_state(conn: ConnectionLike, *, state_hash: str, expires: datetime.datetime) -> None:
+    await conn.execute(CREATE_O_AUTH_STATE, {"p1": state_hash, "p2": expires})
+
+
+async def consume_o_auth_state(conn: ConnectionLike, *, state_hash: str) -> datetime.datetime | None:
+    row = await (await conn.execute(CONSUME_O_AUTH_STATE, {"p1": state_hash})).fetchone()
+    if row is None:
+        return None
+    return row[0]
+
+
+async def upsert_user(conn: ConnectionLike, *, google_sub: str, email: str) -> models.User | None:
+    row = await (await conn.execute(UPSERT_USER, {"p1": google_sub, "p2": email})).fetchone()
+    if row is None:
+        return None
+    return models.User(id_=row[0], google_sub=row[1], email=row[2], created=row[3], last_login=row[4])
+
+
+async def create_session(conn: ConnectionLike, *, user_id: int, token_hash: str, expires: datetime.datetime) -> None:
+    await conn.execute(CREATE_SESSION, {"p1": user_id, "p2": token_hash, "p3": expires})
+
+
+async def get_stash(conn: ConnectionLike, *, id_: int) -> GetStashRow | None:
     row = await (await conn.execute(GET_STASH, {"p1": id_})).fetchone()
     if row is None:
         return None
-    return models.Stash(id_=row[0], is_binary=row[1], slug=row[2], added=row[3], added_by_ip=str(row[4]))
+    return GetStashRow(id_=row[0], is_binary=row[1], slug=row[2], added=row[3], added_by_ip=str(row[4]))
 
 
-async def get_stash_by_slug(conn: ConnectionLike, *, slug: str) -> models.Stash | None:
+async def get_stash_by_slug(conn: ConnectionLike, *, slug: str) -> GetStashBySlugRow | None:
     row = await (await conn.execute(GET_STASH_BY_SLUG, {"p1": slug})).fetchone()
     if row is None:
         return None
-    return models.Stash(id_=row[0], is_binary=row[1], slug=row[2], added=row[3], added_by_ip=str(row[4]))
+    return GetStashBySlugRow(id_=row[0], is_binary=row[1], slug=row[2], added=row[3], added_by_ip=str(row[4]))
 
 
-def list_stashes(conn: ConnectionLike, *, limit: int, offset: int) -> QueryResults[models.Stash]:
-    def _decode_hook(row: psycopg.rows.TupleRow) -> models.Stash:
-        return models.Stash(id_=row[0], is_binary=row[1], slug=row[2], added=row[3], added_by_ip=str(row[4]))
+def list_stashes(conn: ConnectionLike, *, limit: int, offset: int) -> QueryResults[ListStashesRow]:
+    def _decode_hook(row: psycopg.rows.TupleRow) -> ListStashesRow:
+        return ListStashesRow(id_=row[0], is_binary=row[1], slug=row[2], added=row[3], added_by_ip=str(row[4]))
 
     return QueryResults(conn, LIST_STASHES, _decode_hook, {"p1": limit, "p2": offset})
 
