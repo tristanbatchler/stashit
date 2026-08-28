@@ -1,9 +1,9 @@
 {
     "exclude": [
         "**/.venv",
-        "api/db/query.py",
-        "api/db/models.py",
-        "api/db/__init__.py"
+        "api/src/api/db/query.py",
+        "api/src/api/db/models.py",
+        "api/src/api/db/__init__.py"
     ],
     "extraPaths": [
         "api"

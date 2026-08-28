@@ -406,14 +406,50 @@ export type GetStashViewsApiV1StashesViewsSlugGetResponses = {
 
 export type GetStashViewsApiV1StashesViewsSlugGetResponse = GetStashViewsApiV1StashesViewsSlugGetResponses[keyof GetStashViewsApiV1StashesViewsSlugGetResponses];
 
-export type GoogleCallbackApiV1AuthGoogleCallbackGetData = {
+export type GoogleLoginApiV1AuthGoogleGetData = {
     body?: never;
     path?: never;
     query?: never;
+    url: '/api/v1/auth/google';
+};
+
+export type GoogleLoginApiV1AuthGoogleGetErrors = {
+    /**
+     * Internal Server Error
+     */
+    500: Message;
+};
+
+export type GoogleLoginApiV1AuthGoogleGetError = GoogleLoginApiV1AuthGoogleGetErrors[keyof GoogleLoginApiV1AuthGoogleGetErrors];
+
+export type GoogleLoginApiV1AuthGoogleGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
+export type GoogleCallbackApiV1AuthGoogleCallbackGetData = {
+    body?: never;
+    path?: never;
+    query: {
+        /**
+         * Code
+         */
+        code: string;
+        /**
+         * State
+         */
+        state: string;
+    };
     url: '/api/v1/auth/google/callback';
 };
 
 export type GoogleCallbackApiV1AuthGoogleCallbackGetErrors = {
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
     /**
      * Internal Server Error
      */

@@ -8,13 +8,13 @@ from __future__ import annotations
 __all__: collections.abc.Sequence[str] = (
     "CreateStashRow",
     "GetActiveStashLockoutRow",
+    "GetOAuthStateRow",
     "GetStashBySlugRow",
     "GetStashRevocationRow",
     "GetStashRow",
     "ListStashesRow",
     "QueryResults",
     "check_slug_exists",
-    "consume_o_auth_state",
     "create_o_auth_state",
     "create_session",
     "create_stash",
@@ -27,7 +27,9 @@ __all__: collections.abc.Sequence[str] = (
     "create_stash_revocation",
     "create_stash_text_content",
     "create_stash_view",
+    "delete_o_auth_state",
     "get_active_stash_lockout",
+    "get_o_auth_state",
     "get_stash",
     "get_stash_binary_path",
     "get_stash_by_slug",
@@ -60,6 +62,15 @@ if typing.TYPE_CHECKING:
     type ConnectionLike = psycopg.AsyncConnection[psycopg.rows.TupleRow]
 
 from . import models
+
+
+class GetOAuthStateRow(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
+
+    state: str
+    code_verifier: str
+    expires: datetime.datetime
+    ip_address: str
 
 
 class GetStashRow(pydantic.BaseModel):
@@ -118,16 +129,28 @@ class GetStashRevocationRow(pydantic.BaseModel):
 
 CREATE_O_AUTH_STATE: typing.Final[typing.LiteralString] = """-- name: CreateOAuthState :exec
 INSERT INTO oauth_states (
-    state_hash,
-    expires
+    state,
+    code_verifier,
+    expires,
+    ip_address
 )
-VALUES (%(p1)s, %(p2)s)
+VALUES (%(p1)s, %(p2)s, %(p3)s, %(p4)s)
 """
 
-CONSUME_O_AUTH_STATE: typing.Final[typing.LiteralString] = """-- name: ConsumeOAuthState :one
+GET_O_AUTH_STATE: typing.Final[typing.LiteralString] = """-- name: GetOAuthState :one
+SELECT
+    state,
+    code_verifier,
+    expires,
+    ip_address
+FROM oauth_states
+WHERE state = %(p1)s
+"""
+
+DELETE_O_AUTH_STATE: typing.Final[typing.LiteralString] = """-- name: DeleteOAuthState :one
 DELETE FROM oauth_states
-WHERE state_hash = %(p1)s
-RETURNING expires
+WHERE state = %(p1)s
+RETURNING state, code_verifier, created, expires, ip_address
 """
 
 UPSERT_USER: typing.Final[typing.LiteralString] = """-- name: UpsertUser :one
@@ -404,15 +427,22 @@ class QueryResults[T]:
         return self._decode_hook(record)
 
 
-async def create_o_auth_state(conn: ConnectionLike, *, state_hash: str, expires: datetime.datetime) -> None:
-    await conn.execute(CREATE_O_AUTH_STATE, {"p1": state_hash, "p2": expires})
+async def create_o_auth_state(conn: ConnectionLike, *, state: str, code_verifier: str, expires: datetime.datetime, ip_address: str) -> None:
+    await conn.execute(CREATE_O_AUTH_STATE, {"p1": state, "p2": code_verifier, "p3": expires, "p4": ip_address})
 
 
-async def consume_o_auth_state(conn: ConnectionLike, *, state_hash: str) -> datetime.datetime | None:
-    row = await (await conn.execute(CONSUME_O_AUTH_STATE, {"p1": state_hash})).fetchone()
+async def get_o_auth_state(conn: ConnectionLike, *, state: str) -> GetOAuthStateRow | None:
+    row = await (await conn.execute(GET_O_AUTH_STATE, {"p1": state})).fetchone()
     if row is None:
         return None
-    return row[0]
+    return GetOAuthStateRow(state=row[0], code_verifier=row[1], expires=row[2], ip_address=str(row[3]))
+
+
+async def delete_o_auth_state(conn: ConnectionLike, *, state: str) -> models.OauthState | None:
+    row = await (await conn.execute(DELETE_O_AUTH_STATE, {"p1": state})).fetchone()
+    if row is None:
+        return None
+    return models.OauthState(state=row[0], code_verifier=row[1], created=row[2], expires=row[3], ip_address=str(row[4]))
 
 
 async def upsert_user(conn: ConnectionLike, *, google_sub: str, email: str) -> models.User | None:

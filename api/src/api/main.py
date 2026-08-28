@@ -16,6 +16,7 @@ from starlette.status import (
 
 from .db import ops
 from .response_models import Message
+from .routers.google_auth import GOOGLE_CALLBACK_ROUTE_ID
 from .routers.google_auth import router as google_auth_router
 from .routers.stashes import router as stashes_router
 from .settings import settings
@@ -37,7 +38,7 @@ app: FastAPI = FastAPI(lifespan=lifespan)
 # Allow the SvelteKit dev server (and built site) to call this API from the browser.
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.APP_BASE_URL],
+    allow_origins=[settings.WEB_BASE_URL],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -56,6 +57,10 @@ main_router = APIRouter(
 main_router.include_router(stashes_router)
 main_router.include_router(google_auth_router)
 app.include_router(main_router)
+
+google_redirect_uri = settings.API_BASE_URL + main_router.url_path_for(
+    GOOGLE_CALLBACK_ROUTE_ID
+)
 
 
 @main_router.get(

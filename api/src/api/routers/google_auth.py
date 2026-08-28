@@ -1,20 +1,140 @@
-from fastapi import APIRouter
+import logging
+import secrets
+from datetime import UTC, datetime, timedelta
+from typing import cast
 
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import RedirectResponse
+from google.auth.transport import requests
+from google.oauth2 import id_token
+from starlette.status import (
+    HTTP_303_SEE_OTHER,
+    HTTP_400_BAD_REQUEST,
+    HTTP_401_UNAUTHORIZED,
+    HTTP_500_INTERNAL_SERVER_ERROR,
+)
+
+from ..auth_service import create_google_flow
+from ..db import query
+from ..dependencies import DBConn, IPAddr, NamedRouteURIs
 from ..settings import settings
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth/google")
 
-# @google_auth_router.get("", ...)
-# def ...
-
-GOOGLE_CALLBACK_NAME = "google_callback"
+GOOGLE_CALLBACK_ROUTE_ID = "google_callback"
 
 
-@router.get("/callback", name=GOOGLE_CALLBACK_NAME)
-async def google_callback():
-    return {"status": "ok"}
+@router.get("")
+async def google_login(
+    db_conn: DBConn,
+    ip_addr: IPAddr,
+    named_route_uris: NamedRouteURIs,
+) -> RedirectResponse:
+    if ip_addr is None:
+        raise HTTPException(
+            status_code=HTTP_401_UNAUTHORIZED,
+            detail="The server could not determine your IP address",
+        )
+
+    redirect_uri = named_route_uris(GOOGLE_CALLBACK_ROUTE_ID)
+
+    state = secrets.token_urlsafe(32)
+    expires_at = datetime.now(UTC) + timedelta(minutes=10)
+
+    flow = create_google_flow(redirect_uri)
+
+    authorization_url, _ = cast(
+        tuple[str, str],
+        flow.authorization_url(  # pyright: ignore[reportUnknownMemberType]
+            state=state,
+            prompt="select_account",
+        ),
+    )
+
+    if not isinstance(flow.code_verifier, str):  # pyright: ignore[reportUnknownMemberType]
+        raise HTTPException(
+            HTTP_500_INTERNAL_SERVER_ERROR,
+            "Could not get code verifier from Google OAuth flow",
+        )
+
+    async with db_conn.transaction():
+        await query.create_o_auth_state(
+            db_conn,
+            state=state,
+            code_verifier=flow.code_verifier,
+            expires=expires_at,
+            ip_address=ip_addr,
+        )
+
+    return RedirectResponse(authorization_url)
 
 
-google_redirect_uri: str = settings.APP_BASE_URL + router.url_path_for(
-    GOOGLE_CALLBACK_NAME
-)
+@router.get("/callback", name=GOOGLE_CALLBACK_ROUTE_ID)
+async def google_callback(
+    code: str,
+    state: str,
+    db_conn: DBConn,
+    named_route_uris: NamedRouteURIs,
+) -> RedirectResponse:
+    redirect_uri = named_route_uris(GOOGLE_CALLBACK_ROUTE_ID)
+
+    oauth_state = await query.get_o_auth_state(
+        db_conn,
+        state=state,
+    )
+
+    if oauth_state is None:
+        raise HTTPException(
+            status_code=HTTP_400_BAD_REQUEST,
+            detail="Invalid OAuth state",
+        )
+
+    flow = create_google_flow(redirect_uri)
+    flow.fetch_token(  # pyright: ignore[reportUnknownMemberType]
+        code=code,
+        code_verifier=oauth_state.code_verifier,
+    )
+
+    credentials = flow.credentials
+
+    cred_id_token = cast(str | bytes | None, credentials.id_token)  # pyright: ignore[reportAttributeAccessIssue]
+
+    if not cred_id_token:
+        raise HTTPException(
+            status_code=HTTP_400_BAD_REQUEST,
+            detail="Google did not return an ID token",
+        )
+
+    google_identity = id_token.verify_oauth2_token(  # pyright: ignore[reportUnknownMemberType]
+        cred_id_token,
+        requests.Request(),
+        settings.GOOGLE_CLIENT_ID,
+    )
+
+    sub = google_identity.get("sub")
+    if not sub or not isinstance(sub, str):
+        raise HTTPException(
+            status_code=HTTP_400_BAD_REQUEST,
+            detail="Google identity does not contain sub",
+        )
+
+    logger.info(
+        "Google OAuth successful: sub=%s email=%s name=%s picture=%s",
+        sub,
+        google_identity.get("email"),
+        google_identity.get("name"),
+        google_identity.get("picture"),
+    )
+
+    async with db_conn.transaction():
+        _ = await query.delete_o_auth_state(
+            db_conn,
+            state=state,
+        )
+
+    return RedirectResponse(
+        settings.WEB_BASE_URL,
+        status_code=HTTP_303_SEE_OTHER,
+    )

@@ -1,15 +1,25 @@
 -- name: CreateOAuthState :exec
 INSERT INTO oauth_states (
-    state_hash,
-    expires
+    state,
+    code_verifier,
+    expires,
+    ip_address
 )
-VALUES ($1, $2);
+VALUES ($1, $2, $3, $4);
 
+-- name: GetOAuthState :one
+SELECT
+    state,
+    code_verifier,
+    expires,
+    ip_address
+FROM oauth_states
+WHERE state = $1;
 
--- name: ConsumeOAuthState :one
+-- name: DeleteOAuthState :one
 DELETE FROM oauth_states
-WHERE state_hash = $1
-RETURNING expires;
+WHERE state = $1
+RETURNING *;
 
 
 -- name: UpsertUser :one

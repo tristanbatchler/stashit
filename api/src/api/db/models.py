@@ -32,9 +32,11 @@ if typing.TYPE_CHECKING:
 class OauthState(pydantic.BaseModel):
     model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
 
-    state_hash: str
+    state: str
+    code_verifier: str
     created: datetime.datetime
     expires: datetime.datetime
+    ip_address: str
 
 
 class Session(pydantic.BaseModel):

@@ -29,9 +29,11 @@ CREATE INDEX IF NOT EXISTS idx_sessions_expires
 
 CREATE TABLE IF NOT EXISTS oauth_states
 (
-    state_hash TEXT PRIMARY KEY,
-    created    TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    expires    TIMESTAMPTZ NOT NULL,
+    state         TEXT PRIMARY KEY,
+    code_verifier TEXT NOT NULL,
+    created       TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires       TIMESTAMPTZ NOT NULL,
+    ip_address    INET NOT NULL,
 
     CONSTRAINT chk_oauth_states_expiry
         CHECK (expires > created)

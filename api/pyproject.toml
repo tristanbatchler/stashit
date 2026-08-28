@@ -36,9 +36,9 @@ dev = [
 
 [tool.ruff]
 exclude = [
-    "db/query.py",
-    "db/models.py",
-    "db/__init__.py",
+    "src/api/db/query.py",
+    "src/api/db/models.py",
+    "src/api/db/__init__.py",
 ]
 
 [tool.fastapi]
