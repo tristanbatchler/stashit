@@ -1,16 +1,13 @@
 import logging
 from collections.abc import AsyncGenerator, Awaitable, Callable, Sequence
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
-from enum import Enum
-from os import getenv
 from pathlib import Path
 from sys import exit
-from typing import Annotated
+from typing import Annotated, ClassVar, cast
 from uuid import uuid4
+from pydantic_core import PydanticUndefined
 
 import aiofiles
-from dotenv import load_dotenv
 from fastapi import (
     APIRouter,
     Body,
@@ -21,14 +18,13 @@ from fastapi import (
     Request,
     UploadFile,
 )
-
-# jsonable_encoder removed; FastAPI will serialize pydantic models automatically
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from psycopg import AsyncConnection
 from psycopg.errors import UniqueViolation
 from psycopg_pool import AsyncConnectionPool
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from starlette.middleware.body_limit import RequestBodyLimitMiddleware
 from starlette.status import (
     HTTP_200_OK,
@@ -46,47 +42,54 @@ from slug_service import new_slug
 
 logger = logging.getLogger(Path(__file__).name)
 
-@dataclass
-class ConfigItem:
-    key: str
-    int_range: tuple[int | None, int | None] = (None, None)
+app_directory = Path(__file__).parent.parent
 
-class ConfigKey(Enum):
-    DB_DATABASE = ConfigItem("DB_DATABASE")
-    DB_USERNAME = ConfigItem("DB_USERNAME")
-    DB_PASSWORD = ConfigItem("DB_PASSWORD")
-    DB_HOST = ConfigItem("DB_HOST")
-    DB_PORT = ConfigItem("DB_PORT", (0, 0xFFFF))
-    APP_BASE_URL = ConfigItem("APP_BASE_URL")
-    APP_MAX_UPLOAD_BYTES = ConfigItem("APP_MAX_UPLOAD_BYTES", (1, None))
-    APP_MAX_PAGE_TAKE = ConfigItem("APP_MAX_PAGE_TAKE", (1, 200))
+class Settings(BaseSettings):
+    DB_DATABASE: str = Field(default=...)
+    DB_USERNAME: str = Field(default=...)
+    DB_PASSWORD: str = Field(default=...)
+    DB_HOST: str = Field(default=...)
+    DB_PORT: int = Field(default=5432, ge=0, le=0xFFFF)
+    APP_BASE_URL: str = Field(default=...)
+    APP_MAX_UPLOAD_BYTES: int = Field(default=0x140000000, ge=1)
+    APP_MAX_PAGE_TAKE: int = Field(default=200, ge=1)
+    APP_NON_UPLOAD_MAX_BODY_SIZE: int = Field(default=0x100000, gt=1)
+    APP_UPLOADS_STREAMING_CHUNK_SIZE: int = Field(default=0x10000, gt=1)
 
-config: dict[ConfigKey, str] = {}
+    model_config: ClassVar[SettingsConfigDict] = SettingsConfigDict(
+        env_file=app_directory / "settings.env",
+        extra="ignore",
+        env_ignore_empty=True,
+    )
 
-_ = load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
+# Write the settings example file based on Settings defaults
+example_lines: list[str] = []
+for field_name, field_info in Settings.model_fields.items():
+    default = cast(object, field_info.default)
+    if default is not PydanticUndefined:
+        line = f"# {field_name} = {default} # Optional"
+    else:
+        line = f"{field_name} = "
+    example_lines.append(line)
 
-for config_key in ConfigKey:
-    config_item = config_key.value
-    value = getenv(config_item.key)
-    if value is None:
-        logger.fatal("Missing configuration key %s", config_key)
-        exit(1)
+example_text = "\n".join(example_lines)
+example_settings_path = app_directory / "settings.example.env"
+_ = example_settings_path.write_text(example_text)
 
-    _min, _max = config_item.int_range
-    if (_min is not None) or (_max is not None):
-        try:
-            n = int(value)
-            if (_min is not None and n < _min) or (_max is not None and n > _max):
-                raise ValueError
-        except ValueError:
-            logger.fatal("Invalid integer value %s for config item: %s", value, config_key)
-            exit(1)
+# If the settings file doesn't exist, copy the example on there too
+settings_path = app_directory / "settings.env"
+if not settings_path.is_file():
+    _ = settings_path.write_text(example_text)
+    logging.fatal(f"Settings file {settings_path} not present so I have created it for you - please fill out the required fields")
+    exit(1)
 
+try:
+    settings = Settings()
+except Exception as e:
+    logger.fatal("Configuration validation failed: %s", e)
+    exit(1)
 
-    config[config_key] = value
-
-
-db_conn_string = f"postgresql://{config[ConfigKey.DB_USERNAME]}:{config[ConfigKey.DB_PASSWORD]}@{config[ConfigKey.DB_HOST]}:{config[ConfigKey.DB_PORT]}/{config[ConfigKey.DB_DATABASE]}"
+db_conn_string = f"postgresql://{settings.DB_USERNAME}:{settings.DB_PASSWORD}@{settings.DB_HOST}:{settings.DB_PORT}/{settings.DB_DATABASE}"
 db_conn_pool = AsyncConnectionPool(
     db_conn_string,
     open=False,
@@ -105,7 +108,7 @@ async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
 
 app: FastAPI = FastAPI(lifespan=lifespan)
 
-async def get_ip_addr(request: Request) -> str | None:
+def get_ip_addr(request: Request) -> str | None:
     if forwarded_for := request.headers.get("x-forwarded-for"):
         return forwarded_for.split(",", 1)[0].strip()
 
@@ -125,7 +128,7 @@ IPAddr = Annotated[str | None, Depends(get_ip_addr)]
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
-        config[ConfigKey.APP_BASE_URL]
+        settings.APP_BASE_URL
     ],
     allow_credentials=True,
     allow_methods=["*"],
@@ -134,7 +137,7 @@ app.add_middleware(
 
 app.add_middleware(
     RequestBodyLimitMiddleware,
-    max_body_size=int(config[ConfigKey.APP_MAX_UPLOAD_BYTES]) + 1_048_576,
+    max_body_size=settings.APP_MAX_UPLOAD_BYTES + settings.APP_NON_UPLOAD_MAX_BODY_SIZE,
 )
 
 class Message(BaseModel):
@@ -147,9 +150,8 @@ api_router.include_router(stashes_router)
 app.include_router(api_router)
 
 
-max_page_take = int(config[ConfigKey.APP_MAX_PAGE_TAKE])
 @stashes_router.get("/", status_code=HTTP_200_OK, response_model=Sequence[models.Stash])
-async def list_stashes(page: int, take: Annotated[int, Query(lt=max_page_take, gt=0)], db_conn: DBConn) -> Sequence[models.Stash]:
+async def list_stashes(page: Annotated[int, Query(gt=0)], take: Annotated[int, Query(lt=settings.APP_MAX_PAGE_TAKE, gt=0)], db_conn: DBConn) -> Sequence[models.Stash]:
     return await query.list_stashes(db_conn, limit=take, offset=(page-1) * take)
 
 MAX_SLUG_ATTEMPTS = 10
@@ -181,6 +183,10 @@ async def add_text_stash(content: Annotated[str, Body()], db_conn: DBConn, ip_ad
     return await try_with_slug(operation, is_binary=False, db_conn=db_conn, ip_addr=ip_addr)
     
 
+def maybe_raise_content_too_large_exception(current_bytes: int):
+    max_bytes = settings.APP_MAX_UPLOAD_BYTES
+    if current_bytes > max_bytes:
+        raise HTTPException(HTTP_413_CONTENT_TOO_LARGE, f"Uploaded file exceeds the maximum allowed size ({max_bytes}B)")
 
 @stashes_router.post("/file", status_code=HTTP_201_CREATED, response_model=models.Stash, responses={HTTP_422_UNPROCESSABLE_CONTENT: {"model": Message}, HTTP_413_CONTENT_TOO_LARGE: {"model": Message}})
 async def add_binary_stash(file: UploadFile, db_conn: DBConn, ip_addr: IPAddr) -> models.Stash:
@@ -191,7 +197,7 @@ async def add_binary_stash(file: UploadFile, db_conn: DBConn, ip_addr: IPAddr) -
         )
 
     try:
-        uploads_dir = Path(__file__).parent / "uploads"
+        uploads_dir = app_directory / "uploads"
         uploads_dir.mkdir(exist_ok=True)
 
         if file.filename is None:
@@ -206,6 +212,8 @@ async def add_binary_stash(file: UploadFile, db_conn: DBConn, ip_addr: IPAddr) -
                 "The uploaded file is empty or corrupted",
             )
 
+        maybe_raise_content_too_large_exception(file.size)
+
         uuid_str = uuid4().hex
         unique_folder = uploads_dir / uuid_str
         unique_folder.mkdir(parents=True, exist_ok=True)
@@ -213,18 +221,21 @@ async def add_binary_stash(file: UploadFile, db_conn: DBConn, ip_addr: IPAddr) -
         sanitized_filename = Path(file.filename).name
         destination = unique_folder / sanitized_filename
 
-        async with aiofiles.open(destination, "wb") as buffer:
-            while chunk := await file.read(1024 * 64):
-                _ = await buffer.write(chunk)
-
-        async def operation(stash_id: int):
-            await query.create_stash_binary_path(
-                db_conn,
-                stash_id=stash_id,
-                file_path=str(destination),
-            )
-
         try:
+            written = 0
+            async with aiofiles.open(destination, "wb") as buffer:
+                while chunk := await file.read(settings.APP_UPLOADS_STREAMING_CHUNK_SIZE):
+                    maybe_raise_content_too_large_exception(written + len(chunk))
+                    written += await buffer.write(chunk)
+
+            async def operation(stash_id: int):
+                await query.create_stash_binary_path(
+                    db_conn,
+                    stash_id=stash_id,
+                    file_path=str(destination),
+                )
+
+        
             return await try_with_slug(
                 operation,
                 is_binary=True,
@@ -240,7 +251,7 @@ async def add_binary_stash(file: UploadFile, db_conn: DBConn, ip_addr: IPAddr) -
                     unique_folder.rmdir()
             except Exception:
                 logger.exception(
-                    "Failed to cleanup uploaded file after DB error: %s",
+                    "Failed to cleanup uploaded file error: %s",
                     destination,
                 )
 
@@ -249,7 +260,7 @@ async def add_binary_stash(file: UploadFile, db_conn: DBConn, ip_addr: IPAddr) -
     finally:
         await file.close()
 
-@stashes_router.get("/file/{slug}", status_code=HTTP_200_OK, response_class=FileResponse, responses={HTTP_404_NOT_FOUND: {"model": Message}, HTTP_200_OK: {"content": {"application/octet-stream": {}}}})
+@stashes_router.get("/file/{slug}", status_code=HTTP_200_OK, response_class=FileResponse, responses={HTTP_404_NOT_FOUND: {"model": Message}, HTTP_400_BAD_REQUEST: {"model": Message}, HTTP_200_OK: {"content": {"application/octet-stream": {}}}})
 async def get_file_stash(slug: str, db_conn: DBConn, ip_addr: IPAddr) -> FileResponse:
     if ip_addr is None:
         raise HTTPException(status_code=HTTP_401_UNAUTHORIZED, detail="The server could not determine your IP address")
@@ -282,7 +293,7 @@ async def get_file_stash(slug: str, db_conn: DBConn, ip_addr: IPAddr) -> FileRes
     )
 
 
-@stashes_router.get("/text/{slug}", status_code=HTTP_200_OK, response_model=str, responses={HTTP_404_NOT_FOUND: {"model": Message}})
+@stashes_router.get("/text/{slug}", status_code=HTTP_200_OK, response_model=str, responses={HTTP_404_NOT_FOUND: {"model": Message}, HTTP_400_BAD_REQUEST: {"model": Message}})
 async def get_text_stash(slug: str, db_conn: DBConn, ip_addr: IPAddr) -> str:
     if ip_addr is None:
         raise HTTPException(status_code=HTTP_401_UNAUTHORIZED, detail="The server could not determine your IP address")
@@ -327,4 +338,4 @@ async def get_stash_views(slug: str, unique: bool, db_conn: DBConn) -> int:
 
 @api_router.get("/config/max-upload-bytes", status_code=HTTP_200_OK, response_model=int)
 async def get_config() -> int:
-    return int(config[ConfigKey.APP_MAX_UPLOAD_BYTES])
+    return settings.APP_MAX_UPLOAD_BYTES

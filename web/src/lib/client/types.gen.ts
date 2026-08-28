@@ -269,6 +269,10 @@ export type GetFileStashApiV1StashesFileSlugGetData = {
 
 export type GetFileStashApiV1StashesFileSlugGetErrors = {
     /**
+     * Bad Request
+     */
+    400: Message;
+    /**
      * Not Found
      */
     404: Message;
@@ -306,6 +310,10 @@ export type GetTextStashApiV1StashesTextSlugGetData = {
 };
 
 export type GetTextStashApiV1StashesTextSlugGetErrors = {
+    /**
+     * Bad Request
+     */
+    400: Message;
     /**
      * Not Found
      */

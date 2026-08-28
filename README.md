@@ -9,7 +9,7 @@ I'm sure there are alternatives I can deploy with Docker, but I wanted to make m
 Firstly, make your configuration:
 
 ```
-cp .env.example .env
+cp settings.example.env settings.env
 # Now edit it however you like
 ```
 
