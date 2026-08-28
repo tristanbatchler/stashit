@@ -406,6 +406,29 @@ export type GetStashViewsApiV1StashesViewsSlugGetResponses = {
 
 export type GetStashViewsApiV1StashesViewsSlugGetResponse = GetStashViewsApiV1StashesViewsSlugGetResponses[keyof GetStashViewsApiV1StashesViewsSlugGetResponses];
 
+export type GoogleCallbackApiV1AuthGoogleCallbackGetData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/google/callback';
+};
+
+export type GoogleCallbackApiV1AuthGoogleCallbackGetErrors = {
+    /**
+     * Internal Server Error
+     */
+    500: Message;
+};
+
+export type GoogleCallbackApiV1AuthGoogleCallbackGetError = GoogleCallbackApiV1AuthGoogleCallbackGetErrors[keyof GoogleCallbackApiV1AuthGoogleCallbackGetErrors];
+
+export type GoogleCallbackApiV1AuthGoogleCallbackGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: unknown;
+};
+
 export type GetConfigApiV1ConfigMaxUploadBytesGetData = {
     body?: never;
     path?: never;

@@ -45,11 +45,13 @@ __all__: collections.abc.Sequence[str] = (
 )
 
 import datetime
-import pydantic
 import typing
+
+import pydantic
 
 if typing.TYPE_CHECKING:
     import collections.abc
+
     import psycopg
     import psycopg.rows
 
@@ -57,7 +59,7 @@ if typing.TYPE_CHECKING:
 
     type ConnectionLike = psycopg.AsyncConnection[psycopg.rows.TupleRow]
 
-from db import models
+from . import models
 
 
 class GetStashRow(pydantic.BaseModel):

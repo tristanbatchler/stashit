@@ -9,8 +9,8 @@ run = "uv run --project api ruff check --fix api"
 sources = ["api/**/*.py"]
 
 [tasks.sqlc]
-run = "sqlc generate --file api/db/sqlc.yaml"
-sources = ["api/db/*.sql", "api/db/sqlc.yaml"]
+run = "sqlc generate --file api/src/api/db/sqlc.yaml"
+sources = ["api/src/api/db/*.sql", "api/src/api/db/sqlc.yaml"]
 
 [tasks.web-check]
 run = "npm --prefix web run check"

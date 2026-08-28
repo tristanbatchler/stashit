@@ -12,7 +12,7 @@ sql:
     - out: "."
       plugin: python
       options:
-        package: "db"
+        package: "."
         emit_init_file: true
         sql_driver: "psycopg_async"
         model_type: "pydantic"
