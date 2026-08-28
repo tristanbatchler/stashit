@@ -10,6 +10,10 @@ __all__: collections.abc.Sequence[str] = (
     "StashPasswordAttempt",
     "StashView",
     "StashesBinaryPath",
+    "StashesExpiry",
+    "StashesOneTimeView",
+    "StashesPasswordHash",
+    "StashesRevocation",
     "StashesTextContent",
 )
 
@@ -29,11 +33,6 @@ class Stash(pydantic.BaseModel):
     slug: str
     added: datetime.datetime
     added_by_ip: str
-    expires_at: datetime.datetime | None
-    one_time_view: bool
-    password_hash: str | None
-    revoked_at: datetime.datetime | None
-    revoked_by_ip: str | None
 
 
 class StashLockout(pydantic.BaseModel):
@@ -70,6 +69,34 @@ class StashesBinaryPath(pydantic.BaseModel):
 
     stash_id: int
     file_path: str
+
+
+class StashesExpiry(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
+
+    stash_id: int
+    expires_at: datetime.datetime
+
+
+class StashesOneTimeView(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
+
+    stash_id: int
+
+
+class StashesPasswordHash(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
+
+    stash_id: int
+    password_hash: str
+
+
+class StashesRevocation(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
+
+    stash_id: int
+    revoked_at: datetime.datetime
+    revoked_by_ip: str
 
 
 class StashesTextContent(pydantic.BaseModel):

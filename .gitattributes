@@ -1,0 +1,6 @@
+# Set default behavior to automatic text normalization
+* text=auto
+
+# Force generated code and Python scripts to use LF to stop the warnings
+*.ts text eol=lf
+*.py text eol=lf

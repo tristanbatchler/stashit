@@ -6,21 +6,29 @@
 from __future__ import annotations
 
 __all__: collections.abc.Sequence[str] = (
+    "CreateStashRow",
     "GetActiveStashLockoutRow",
-    "GetStashBySlugRow",
-    "GetStashRow",
+    "GetStashRevocationRow",
     "QueryResults",
     "check_slug_exists",
     "create_stash",
     "create_stash_binary_path",
+    "create_stash_expiry",
     "create_stash_lockout",
+    "create_stash_one_time_view",
     "create_stash_password_attempt",
+    "create_stash_password_hash",
+    "create_stash_revocation",
     "create_stash_text_content",
     "create_stash_view",
     "get_active_stash_lockout",
     "get_stash",
     "get_stash_binary_path",
     "get_stash_by_slug",
+    "get_stash_expiry",
+    "get_stash_one_time_view",
+    "get_stash_password_hash",
+    "get_stash_revocation",
     "get_stash_text_content",
     "get_stash_unique_views",
     "get_stash_unique_views_by_slug",
@@ -45,32 +53,13 @@ if typing.TYPE_CHECKING:
 from db import models
 
 
-class GetStashRow(pydantic.BaseModel):
-    model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
-
-    is_binary: bool
-    slug: str
-    added: datetime.datetime
-    added_by_ip: str
-    expires_at: datetime.datetime | None
-    one_time_view: bool
-    password_hash: str | None
-    revoked_at: datetime.datetime | None
-    revoked_by_ip: str | None
-
-
-class GetStashBySlugRow(pydantic.BaseModel):
+class CreateStashRow(pydantic.BaseModel):
     model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
 
     id_: int
     is_binary: bool
+    slug: str
     added: datetime.datetime
-    added_by_ip: str
-    expires_at: datetime.datetime | None
-    one_time_view: bool
-    password_hash: str | None
-    revoked_at: datetime.datetime | None
-    revoked_by_ip: str | None
 
 
 class GetActiveStashLockoutRow(pydantic.BaseModel):
@@ -81,17 +70,20 @@ class GetActiveStashLockoutRow(pydantic.BaseModel):
     expires: datetime.datetime
 
 
+class GetStashRevocationRow(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
+
+    revoked_at: datetime.datetime
+    revoked_by_ip: str
+
+
 GET_STASH: typing.Final[typing.LiteralString] = """-- name: GetStash :one
 SELECT
+    id,
     is_binary,
     slug,
     added,
-    added_by_ip,
-    expires_at,
-    one_time_view,
-    password_hash,
-    revoked_at,
-    revoked_by_ip
+    added_by_ip
 FROM stashes
 WHERE id = %(p1)s
 """
@@ -100,19 +92,20 @@ GET_STASH_BY_SLUG: typing.Final[typing.LiteralString] = """-- name: GetStashBySl
 SELECT
     id,
     is_binary,
+    slug,
     added,
-    added_by_ip,
-    expires_at,
-    one_time_view,
-    password_hash,
-    revoked_at,
-    revoked_by_ip
+    added_by_ip
 FROM stashes
 WHERE slug = %(p1)s
 """
 
 LIST_STASHES: typing.Final[typing.LiteralString] = """-- name: ListStashes :many
-SELECT id, is_binary, slug, added, added_by_ip, expires_at, one_time_view, password_hash, revoked_at, revoked_by_ip 
+SELECT
+    id,
+    is_binary,
+    slug,
+    added,
+    added_by_ip
 FROM stashes
 ORDER BY added DESC, id DESC
 LIMIT %(p1)s OFFSET %(p2)s
@@ -131,18 +124,32 @@ WHERE stash_id = %(p1)s
 """
 
 CREATE_STASH: typing.Final[typing.LiteralString] = """-- name: CreateStash :one
-INSERT INTO stashes (is_binary, slug, added_by_ip)
+INSERT INTO stashes (
+    is_binary,
+    slug,
+    added_by_ip
+)
 VALUES (%(p1)s, %(p2)s, %(p3)s)
-RETURNING id, is_binary, slug, added, added_by_ip, expires_at, one_time_view, password_hash, revoked_at, revoked_by_ip
+RETURNING
+    id,
+    is_binary,
+    slug,
+    added
 """
 
 CREATE_STASH_TEXT_CONTENT: typing.Final[typing.LiteralString] = """-- name: CreateStashTextContent :exec
-INSERT INTO stashes_text_content (stash_id, content)
+INSERT INTO stashes_text_content (
+    stash_id,
+    content
+)
 VALUES (%(p1)s, %(p2)s)
 """
 
 CREATE_STASH_BINARY_PATH: typing.Final[typing.LiteralString] = """-- name: CreateStashBinaryPath :exec
-INSERT INTO stashes_binary_paths (stash_id, file_path)
+INSERT INTO stashes_binary_paths (
+    stash_id,
+    file_path
+)
 VALUES (%(p1)s, %(p2)s)
 """
 
@@ -155,7 +162,10 @@ SELECT EXISTS (
 """
 
 CREATE_STASH_VIEW: typing.Final[typing.LiteralString] = """-- name: CreateStashView :exec
-INSERT INTO stash_views (stash_id, ip_address)
+INSERT INTO stash_views (
+    stash_id,
+    ip_address
+)
 VALUES (%(p1)s, %(p2)s)
 """
 
@@ -205,15 +215,75 @@ WHERE stash_id = %(p1)s
 GET_STASH_VIEWS_BY_SLUG: typing.Final[typing.LiteralString] = """-- name: GetStashViewsBySlug :one
 SELECT COUNT(*)
 FROM stash_views
-JOIN stashes ON stashes.id = stash_views.stash_id
+JOIN stashes
+    ON stashes.id = stash_views.stash_id
 WHERE stashes.slug = %(p1)s
 """
 
 GET_STASH_UNIQUE_VIEWS_BY_SLUG: typing.Final[typing.LiteralString] = """-- name: GetStashUniqueViewsBySlug :one
 SELECT COUNT(DISTINCT stash_views.ip_address)
 FROM stash_views
-JOIN stashes ON stashes.id = stash_views.stash_id
+JOIN stashes
+    ON stashes.id = stash_views.stash_id
 WHERE stashes.slug = %(p1)s
+"""
+
+GET_STASH_EXPIRY: typing.Final[typing.LiteralString] = """-- name: GetStashExpiry :one
+SELECT expires_at
+FROM stashes_expiries
+WHERE stash_id = %(p1)s
+"""
+
+CREATE_STASH_EXPIRY: typing.Final[typing.LiteralString] = """-- name: CreateStashExpiry :exec
+INSERT INTO stashes_expiries (
+    stash_id,
+    expires_at
+)
+VALUES (%(p1)s, %(p2)s)
+"""
+
+GET_STASH_ONE_TIME_VIEW: typing.Final[typing.LiteralString] = """-- name: GetStashOneTimeView :one
+SELECT stash_id
+FROM stashes_one_time_views
+WHERE stash_id = %(p1)s
+"""
+
+CREATE_STASH_ONE_TIME_VIEW: typing.Final[typing.LiteralString] = """-- name: CreateStashOneTimeView :exec
+INSERT INTO stashes_one_time_views (
+    stash_id
+)
+VALUES (%(p1)s)
+"""
+
+GET_STASH_PASSWORD_HASH: typing.Final[typing.LiteralString] = """-- name: GetStashPasswordHash :one
+SELECT password_hash
+FROM stashes_password_hashes
+WHERE stash_id = %(p1)s
+"""
+
+CREATE_STASH_PASSWORD_HASH: typing.Final[typing.LiteralString] = """-- name: CreateStashPasswordHash :exec
+INSERT INTO stashes_password_hashes (
+    stash_id,
+    password_hash
+)
+VALUES (%(p1)s, %(p2)s)
+"""
+
+GET_STASH_REVOCATION: typing.Final[typing.LiteralString] = """-- name: GetStashRevocation :one
+SELECT
+    revoked_at,
+    revoked_by_ip
+FROM stashes_revocations
+WHERE stash_id = %(p1)s
+"""
+
+CREATE_STASH_REVOCATION: typing.Final[typing.LiteralString] = """-- name: CreateStashRevocation :exec
+INSERT INTO stashes_revocations (
+    stash_id,
+    revoked_at,
+    revoked_by_ip
+)
+VALUES (%(p1)s, %(p2)s, %(p3)s)
 """
 
 
@@ -259,23 +329,23 @@ class QueryResults[T]:
         return self._decode_hook(record)
 
 
-async def get_stash(conn: ConnectionLike, *, id_: int) -> GetStashRow | None:
+async def get_stash(conn: ConnectionLike, *, id_: int) -> models.Stash | None:
     row = await (await conn.execute(GET_STASH, {"p1": id_})).fetchone()
     if row is None:
         return None
-    return GetStashRow(is_binary=row[0], slug=row[1], added=row[2], added_by_ip=str(row[3]), expires_at=row[4], one_time_view=row[5], password_hash=row[6], revoked_at=row[7], revoked_by_ip=str(row[8]) if row[8] is not None else None)
+    return models.Stash(id_=row[0], is_binary=row[1], slug=row[2], added=row[3], added_by_ip=str(row[4]))
 
 
-async def get_stash_by_slug(conn: ConnectionLike, *, slug: str) -> GetStashBySlugRow | None:
+async def get_stash_by_slug(conn: ConnectionLike, *, slug: str) -> models.Stash | None:
     row = await (await conn.execute(GET_STASH_BY_SLUG, {"p1": slug})).fetchone()
     if row is None:
         return None
-    return GetStashBySlugRow(id_=row[0], is_binary=row[1], added=row[2], added_by_ip=str(row[3]), expires_at=row[4], one_time_view=row[5], password_hash=row[6], revoked_at=row[7], revoked_by_ip=str(row[8]) if row[8] is not None else None)
+    return models.Stash(id_=row[0], is_binary=row[1], slug=row[2], added=row[3], added_by_ip=str(row[4]))
 
 
 def list_stashes(conn: ConnectionLike, *, limit: int, offset: int) -> QueryResults[models.Stash]:
     def _decode_hook(row: psycopg.rows.TupleRow) -> models.Stash:
-        return models.Stash(id_=row[0], is_binary=row[1], slug=row[2], added=row[3], added_by_ip=str(row[4]), expires_at=row[5], one_time_view=row[6], password_hash=row[7], revoked_at=row[8], revoked_by_ip=str(row[9]) if row[9] is not None else None)
+        return models.Stash(id_=row[0], is_binary=row[1], slug=row[2], added=row[3], added_by_ip=str(row[4]))
 
     return QueryResults(conn, LIST_STASHES, _decode_hook, {"p1": limit, "p2": offset})
 
@@ -294,11 +364,11 @@ async def get_stash_binary_path(conn: ConnectionLike, *, stash_id: int) -> str |
     return row[0]
 
 
-async def create_stash(conn: ConnectionLike, *, is_binary: bool, slug: str, added_by_ip: str) -> models.Stash | None:
+async def create_stash(conn: ConnectionLike, *, is_binary: bool, slug: str, added_by_ip: str) -> CreateStashRow | None:
     row = await (await conn.execute(CREATE_STASH, {"p1": is_binary, "p2": slug, "p3": added_by_ip})).fetchone()
     if row is None:
         return None
-    return models.Stash(id_=row[0], is_binary=row[1], slug=row[2], added=row[3], added_by_ip=str(row[4]), expires_at=row[5], one_time_view=row[6], password_hash=row[7], revoked_at=row[8], revoked_by_ip=str(row[9]) if row[9] is not None else None)
+    return CreateStashRow(id_=row[0], is_binary=row[1], slug=row[2], added=row[3])
 
 
 async def create_stash_text_content(conn: ConnectionLike, *, stash_id: int, content: str) -> None:
@@ -361,3 +431,47 @@ async def get_stash_unique_views_by_slug(conn: ConnectionLike, *, slug: str) -> 
     if row is None:
         return None
     return row[0]
+
+
+async def get_stash_expiry(conn: ConnectionLike, *, stash_id: int) -> datetime.datetime | None:
+    row = await (await conn.execute(GET_STASH_EXPIRY, {"p1": stash_id})).fetchone()
+    if row is None:
+        return None
+    return row[0]
+
+
+async def create_stash_expiry(conn: ConnectionLike, *, stash_id: int, expires_at: datetime.datetime) -> None:
+    await conn.execute(CREATE_STASH_EXPIRY, {"p1": stash_id, "p2": expires_at})
+
+
+async def get_stash_one_time_view(conn: ConnectionLike, *, stash_id: int) -> int | None:
+    row = await (await conn.execute(GET_STASH_ONE_TIME_VIEW, {"p1": stash_id})).fetchone()
+    if row is None:
+        return None
+    return row[0]
+
+
+async def create_stash_one_time_view(conn: ConnectionLike, *, stash_id: int) -> None:
+    await conn.execute(CREATE_STASH_ONE_TIME_VIEW, {"p1": stash_id})
+
+
+async def get_stash_password_hash(conn: ConnectionLike, *, stash_id: int) -> str | None:
+    row = await (await conn.execute(GET_STASH_PASSWORD_HASH, {"p1": stash_id})).fetchone()
+    if row is None:
+        return None
+    return row[0]
+
+
+async def create_stash_password_hash(conn: ConnectionLike, *, stash_id: int, password_hash: str) -> None:
+    await conn.execute(CREATE_STASH_PASSWORD_HASH, {"p1": stash_id, "p2": password_hash})
+
+
+async def get_stash_revocation(conn: ConnectionLike, *, stash_id: int) -> GetStashRevocationRow | None:
+    row = await (await conn.execute(GET_STASH_REVOCATION, {"p1": stash_id})).fetchone()
+    if row is None:
+        return None
+    return GetStashRevocationRow(revoked_at=row[0], revoked_by_ip=str(row[1]))
+
+
+async def create_stash_revocation(conn: ConnectionLike, *, stash_id: int, revoked_at: datetime.datetime, revoked_by_ip: str) -> None:
+    await conn.execute(CREATE_STASH_REVOCATION, {"p1": stash_id, "p2": revoked_at, "p3": revoked_by_ip})

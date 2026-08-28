@@ -15,9 +15,9 @@ export type BodyAddBinaryStashApiV1StashesFilePost = {
 };
 
 /**
- * GetStashBySlugRow
+ * CreateStashRow
  */
-export type GetStashBySlugRow = {
+export type CreateStashRow = {
     /**
      * Id
      */
@@ -27,33 +27,13 @@ export type GetStashBySlugRow = {
      */
     is_binary: boolean;
     /**
+     * Slug
+     */
+    slug: string;
+    /**
      * Added
      */
     added: string;
-    /**
-     * Added By Ip
-     */
-    added_by_ip: string;
-    /**
-     * Expires At
-     */
-    expires_at: string | null;
-    /**
-     * One Time View
-     */
-    one_time_view: boolean;
-    /**
-     * Password Hash
-     */
-    password_hash: string | null;
-    /**
-     * Revoked At
-     */
-    revoked_at: string | null;
-    /**
-     * Revoked By Ip
-     */
-    revoked_by_ip: string | null;
 };
 
 /**
@@ -100,26 +80,6 @@ export type Stash = {
      * Added By Ip
      */
     added_by_ip: string;
-    /**
-     * Expires At
-     */
-    expires_at: string | null;
-    /**
-     * One Time View
-     */
-    one_time_view: boolean;
-    /**
-     * Password Hash
-     */
-    password_hash: string | null;
-    /**
-     * Revoked At
-     */
-    revoked_at: string | null;
-    /**
-     * Revoked By Ip
-     */
-    revoked_by_ip: string | null;
 };
 
 /**
@@ -217,7 +177,7 @@ export type AddTextStashApiV1StashesTextPostResponses = {
     /**
      * Successful Response
      */
-    201: Stash;
+    201: CreateStashRow;
 };
 
 export type AddTextStashApiV1StashesTextPostResponse = AddTextStashApiV1StashesTextPostResponses[keyof AddTextStashApiV1StashesTextPostResponses];
@@ -250,7 +210,7 @@ export type AddBinaryStashApiV1StashesFilePostResponses = {
     /**
      * Successful Response
      */
-    201: Stash;
+    201: CreateStashRow;
 };
 
 export type AddBinaryStashApiV1StashesFilePostResponse = AddBinaryStashApiV1StashesFilePostResponses[keyof AddBinaryStashApiV1StashesFilePostResponses];
@@ -374,7 +334,7 @@ export type GetStashMetadataApiV1StashesMetadataSlugGetResponses = {
     /**
      * Successful Response
      */
-    200: GetStashBySlugRow;
+    200: Stash;
 };
 
 export type GetStashMetadataApiV1StashesMetadataSlugGetResponse = GetStashMetadataApiV1StashesMetadataSlugGetResponses[keyof GetStashMetadataApiV1StashesMetadataSlugGetResponses];
