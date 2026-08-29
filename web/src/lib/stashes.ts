@@ -30,6 +30,7 @@ export async function createStash(
 	file: File | undefined,
 	text: string,
 	expiresAt: string | undefined,
+	password: string | undefined,
 	onProgress: (loaded: number, total: number) => void,
 ): Promise<CreatedStash> {
 	if (file && file.size > 0) {
@@ -60,6 +61,7 @@ export async function createStash(
 				client,
 				body: {
 					file,
+					password
 				},
 				query: {
 					expires_at: expiresAt
@@ -81,7 +83,10 @@ export async function createStash(
 	if (text.trim() !== '') {
 		const response =
 			await addTextStashApiV1StashesTextPost({
-				body: text,
+				body: {
+					content: text,
+					password
+				},
 				query: {
 					expires_at: expiresAt
 				}

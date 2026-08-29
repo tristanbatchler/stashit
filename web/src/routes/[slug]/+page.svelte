@@ -6,7 +6,7 @@
 
 	import { revokeStashApiV1StashesSlugDelete } from '$lib/client';
 
-	let { data } = $props();
+	let { data, form } = $props();
 
 	let pageUrl = $derived(page.url.href);
 	let isAdmin = $derived(data.user?.is_admin ?? false);
@@ -15,6 +15,8 @@
 		data.metadata.expires_at !== null &&
 			new Date(data.metadata.expires_at) <= new Date()
 	);
+	let unlockedContent = $derived(form?.unlockedContent);
+	let unlockError = $derived(form?.unlockError);
 
 	async function revoke() {
 		const { error } = await revokeStashApiV1StashesSlugDelete({
@@ -36,21 +38,66 @@
 		<h5>{data.slug}</h5>
 	</header>
 
-	{#if isAdmin}
-		{#if isRevoked}
-			<p>This stash has been revoked.</p>
-		{:else if isExpired}
-			<p>This stash has expired.</p>
-		{:else if data.isBinary}
+	{#if isRevoked}
+		<p>This stash has been revoked.</p>
+
+	{:else if isExpired && !isAdmin}
+		<p>This stash has expired.</p>
+
+	{:else if data.isBinary}
+		{#if data.metadata.is_protected && !isAdmin}
+			<form method="POST" action={resolve('/[slug]/download', { slug: data.slug })}>
+				<label>
+					Password
+					<input
+						type="password"
+						name="password"
+						autocomplete="current-password"
+						required
+					/>
+				</label>
+
+				<button type="submit">Download</button>
+			</form>
+		{:else}
 			<p>
 				<a href={resolve('/[slug]/download', { slug: data.slug })}>
 					Download file
 				</a>
 			</p>
-		{:else}
-			<pre>{data.content}</pre>
 		{/if}
 
+	{:else if isAdmin}
+		<pre>{data.content}</pre>
+
+	{:else if data.metadata.is_protected}
+		{#if unlockedContent !== undefined}
+			<pre>{unlockedContent}</pre>
+		{:else}
+			<form method="POST" action="?/unlock">
+				<label>
+					Password
+					<input
+						type="password"
+						name="password"
+						autocomplete="current-password"
+						required
+					/>
+				</label>
+
+				<button type="submit">Unlock</button>
+
+				{#if unlockError}
+					<p>{unlockError}</p>
+				{/if}
+			</form>
+		{/if}
+
+	{:else}
+		<pre>{data.content}</pre>
+	{/if}
+
+	{#if isAdmin}
 		<section>
 			<h6>Metadata</h6>
 
@@ -72,6 +119,13 @@
 
 				<dt>Revoked by</dt>
 				<dd>{data.metadata.revoked_by_user_id ?? 'N/A'}</dd>
+
+				<dt>Protection</dt>
+				<dd>
+					{data.metadata.is_protected
+						? 'Password protected'
+						: 'None'}
+				</dd>
 
 				{#if data.isBinary}
 					<dt>Downloads</dt>
@@ -97,25 +151,10 @@
 			</section>
 		{/if}
 
-	{:else if isRevoked}
-		<p>This stash has been revoked.</p>
-
-	{:else if isExpired}
-		<p>This stash has expired.</p>
-
-	{:else}
-		{#if data.isBinary}
-			<p>
-				<a href={resolve('/[slug]/download', { slug: data.slug })}>
-					Download file
-				</a>
-			</p>
-		{:else}
-			<pre>{data.content}</pre>
-		{/if}
-
+	{:else if !isRevoked && !isExpired}
 		<p>
-			<strong>Expires:</strong> {data.metadata.expires_at ?? 'Never'}
+			<strong>Expires:</strong>
+			{data.metadata.expires_at ?? 'Never'}
 		</p>
 
 		<section>

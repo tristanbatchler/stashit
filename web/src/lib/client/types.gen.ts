@@ -12,6 +12,24 @@ export type BodyAddBinaryStashApiV1StashesFilePost = {
      * File
      */
     file: Blob | File;
+    /**
+     * Password
+     */
+    password?: null;
+};
+
+/**
+ * Body_add_text_stash_api_v1_stashes_text_post
+ */
+export type BodyAddTextStashApiV1StashesTextPost = {
+    /**
+     * Content
+     */
+    content: string;
+    /**
+     * Password
+     */
+    password?: null;
 };
 
 /**
@@ -54,6 +72,10 @@ export type GetStashBySlugRow = {
      * Expires At
      */
     expires_at: string | null;
+    /**
+     * Is Protected
+     */
+    is_protected: boolean;
 };
 
 /**
@@ -101,13 +123,25 @@ export type ListStashesRow = {
      */
     added_by_ip: string;
     /**
+     * Added By User Id
+     */
+    added_by_user_id: number | null;
+    /**
      * Revoked At
      */
     revoked_at: string | null;
     /**
+     * Revoked By User Id
+     */
+    revoked_by_user_id: number | null;
+    /**
      * Expires At
      */
     expires_at: string | null;
+    /**
+     * Is Protected
+     */
+    is_protected: boolean;
 };
 
 /**
@@ -212,6 +246,34 @@ export type ValidationError = {
     };
 };
 
+/**
+ * Body_add_binary_stash_api_v1_stashes_file_post
+ */
+export type BodyAddBinaryStashApiV1StashesFilePostWritable = {
+    /**
+     * File
+     */
+    file: Blob | File;
+    /**
+     * Password
+     */
+    password?: string | null;
+};
+
+/**
+ * Body_add_text_stash_api_v1_stashes_text_post
+ */
+export type BodyAddTextStashApiV1StashesTextPostWritable = {
+    /**
+     * Content
+     */
+    content: string;
+    /**
+     * Password
+     */
+    password?: string | null;
+};
+
 export type ListStashesApiV1StashesGetData = {
     body?: never;
     path?: never;
@@ -307,10 +369,7 @@ export type RevokeStashApiV1StashesSlugDeleteResponses = {
 export type RevokeStashApiV1StashesSlugDeleteResponse = RevokeStashApiV1StashesSlugDeleteResponses[keyof RevokeStashApiV1StashesSlugDeleteResponses];
 
 export type AddTextStashApiV1StashesTextPostData = {
-    /**
-     * Content
-     */
-    body: string;
+    body: BodyAddTextStashApiV1StashesTextPostWritable;
     path?: never;
     query?: {
         /**
@@ -344,7 +403,7 @@ export type AddTextStashApiV1StashesTextPostResponses = {
 export type AddTextStashApiV1StashesTextPostResponse = AddTextStashApiV1StashesTextPostResponses[keyof AddTextStashApiV1StashesTextPostResponses];
 
 export type AddBinaryStashApiV1StashesFilePostData = {
-    body: BodyAddBinaryStashApiV1StashesFilePost;
+    body: BodyAddBinaryStashApiV1StashesFilePostWritable;
     path?: never;
     query?: {
         /**
@@ -381,6 +440,126 @@ export type AddBinaryStashApiV1StashesFilePostResponses = {
 
 export type AddBinaryStashApiV1StashesFilePostResponse = AddBinaryStashApiV1StashesFilePostResponses[keyof AddBinaryStashApiV1StashesFilePostResponses];
 
+export type UnlockProtectedFileStashApiV1StashesFileSlugUnlockPostData = {
+    body?: never;
+    path: {
+        /**
+         * Slug
+         */
+        slug: string;
+    };
+    query: {
+        /**
+         * Password
+         */
+        password: string;
+    };
+    url: '/api/v1/stashes/file/{slug}/unlock';
+};
+
+export type UnlockProtectedFileStashApiV1StashesFileSlugUnlockPostErrors = {
+    /**
+     * Bad Request
+     */
+    400: Message;
+    /**
+     * Unauthorized
+     */
+    401: Message;
+    /**
+     * Forbidden
+     */
+    403: Message;
+    /**
+     * Not Found
+     */
+    404: Message;
+    /**
+     * Gone
+     */
+    410: Message;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+    /**
+     * Internal Server Error
+     */
+    500: Message;
+};
+
+export type UnlockProtectedFileStashApiV1StashesFileSlugUnlockPostError = UnlockProtectedFileStashApiV1StashesFileSlugUnlockPostErrors[keyof UnlockProtectedFileStashApiV1StashesFileSlugUnlockPostErrors];
+
+export type UnlockProtectedFileStashApiV1StashesFileSlugUnlockPostResponses = {
+    /**
+     * Successful Response
+     */
+    200: Blob | File;
+};
+
+export type UnlockProtectedFileStashApiV1StashesFileSlugUnlockPostResponse = UnlockProtectedFileStashApiV1StashesFileSlugUnlockPostResponses[keyof UnlockProtectedFileStashApiV1StashesFileSlugUnlockPostResponses];
+
+export type UnlockProtectedTextStashApiV1StashesTextSlugUnlockPostData = {
+    body?: never;
+    path: {
+        /**
+         * Slug
+         */
+        slug: string;
+    };
+    query: {
+        /**
+         * Password
+         */
+        password: string;
+    };
+    url: '/api/v1/stashes/text/{slug}/unlock';
+};
+
+export type UnlockProtectedTextStashApiV1StashesTextSlugUnlockPostErrors = {
+    /**
+     * Bad Request
+     */
+    400: Message;
+    /**
+     * Unauthorized
+     */
+    401: Message;
+    /**
+     * Forbidden
+     */
+    403: Message;
+    /**
+     * Not Found
+     */
+    404: Message;
+    /**
+     * Gone
+     */
+    410: Message;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+    /**
+     * Internal Server Error
+     */
+    500: Message;
+};
+
+export type UnlockProtectedTextStashApiV1StashesTextSlugUnlockPostError = UnlockProtectedTextStashApiV1StashesTextSlugUnlockPostErrors[keyof UnlockProtectedTextStashApiV1StashesTextSlugUnlockPostErrors];
+
+export type UnlockProtectedTextStashApiV1StashesTextSlugUnlockPostResponses = {
+    /**
+     * Response Unlock Protected Text Stash Api V1 Stashes Text  Slug  Unlock Post
+     *
+     * Successful Response
+     */
+    200: string;
+};
+
+export type UnlockProtectedTextStashApiV1StashesTextSlugUnlockPostResponse = UnlockProtectedTextStashApiV1StashesTextSlugUnlockPostResponses[keyof UnlockProtectedTextStashApiV1StashesTextSlugUnlockPostResponses];
+
 export type GetFileStashApiV1StashesFileSlugGetData = {
     body?: never;
     path: {
@@ -398,6 +577,14 @@ export type GetFileStashApiV1StashesFileSlugGetErrors = {
      * Bad Request
      */
     400: Message;
+    /**
+     * Unauthorized
+     */
+    401: Message;
+    /**
+     * Forbidden
+     */
+    403: Message;
     /**
      * Not Found
      */
@@ -444,6 +631,14 @@ export type GetTextStashApiV1StashesTextSlugGetErrors = {
      * Bad Request
      */
     400: Message;
+    /**
+     * Unauthorized
+     */
+    401: Message;
+    /**
+     * Forbidden
+     */
+    403: Message;
     /**
      * Not Found
      */

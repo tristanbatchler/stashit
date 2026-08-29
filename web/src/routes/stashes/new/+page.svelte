@@ -7,6 +7,7 @@
 
 	let hasExpiry = $state(false);
 	let expiresAt = $state('');
+	let password = $state('');
 
 	let isSubmitting = $state(false);
 	let progressPercent = $state<number | null>(null);
@@ -28,6 +29,7 @@
 				file,
 				text,
 				hasExpiry ? new Date(expiresAt).toISOString() : undefined,
+				password || undefined,
 				(loaded, total) => {
 					progressPercent = Math.round((loaded / total) * 100);
 				},
@@ -54,6 +56,17 @@
 		<label>
 			Or a file...
 			<input bind:this={fileInput} name="file" type="file" />
+		</label>
+	</fieldset>
+
+	<fieldset>
+		<label>
+			Password <small>(optional)</small>
+			<input
+				type="password"
+				bind:value={password}
+				autocomplete="new-password"
+			/>
 		</label>
 	</fieldset>
 

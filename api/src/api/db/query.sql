@@ -67,12 +67,23 @@ WHERE token_hash = $1;
 
 -- name: GetStash :one
 SELECT
-    id,
-    is_binary,
-    slug,
-    added,
-    added_by_ip
-FROM stashes
+    s.id,
+    s.is_binary,
+    s.slug,
+    s.added,
+    s.added_by_ip,
+    s.added_by_user_id,
+    r.revoked_at,
+    r.revoked_by_user_id,
+    e.expires_at,
+    CASE WHEN p.password_hash IS NOT NULL THEN true ELSE false END AS is_protected
+FROM stashes s
+LEFT JOIN stashes_revocations r
+    ON r.stash_id = s.id
+LEFT JOIN stashes_expiries e
+    ON e.stash_id = s.id
+LEFT JOIN stashes_password_hashes p
+    ON p.stash_id = s.id
 WHERE id = $1;
 
 
@@ -86,12 +97,15 @@ SELECT
     s.added_by_user_id,
     r.revoked_at,
     r.revoked_by_user_id,
-    e.expires_at
+    e.expires_at,
+    CASE WHEN p.password_hash IS NOT NULL THEN true ELSE false END AS is_protected
 FROM stashes s
 LEFT JOIN stashes_revocations r
     ON r.stash_id = s.id
 LEFT JOIN stashes_expiries e
     ON e.stash_id = s.id
+LEFT JOIN stashes_password_hashes p
+    ON p.stash_id = s.id
 WHERE s.slug = $1;
 
 
@@ -102,13 +116,18 @@ SELECT
     s.slug,
     s.added,
     s.added_by_ip,
+    s.added_by_user_id,
     r.revoked_at,
-    e.expires_at
+    r.revoked_by_user_id,
+    e.expires_at,
+    CASE WHEN p.password_hash IS NOT NULL THEN true ELSE false END AS is_protected
 FROM stashes s
 LEFT JOIN stashes_revocations r
     ON r.stash_id = s.id
 LEFT JOIN stashes_expiries e
-    on e.stash_id = s.id
+    ON e.stash_id = s.id
+LEFT JOIN stashes_password_hashes p
+    ON p.stash_id = s.id
 ORDER BY s.added DESC, s.id DESC
 LIMIT $1 OFFSET $2;
 

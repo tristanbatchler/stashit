@@ -6,6 +6,8 @@ from typing import Annotated
 from uuid import uuid4
 
 import aiofiles
+from argon2 import PasswordHasher
+from argon2.exceptions import HashingError, VerifyMismatchError
 from fastapi import (
     APIRouter,
     Body,
@@ -16,6 +18,7 @@ from fastapi import (
 from fastapi.responses import FileResponse
 from psycopg import AsyncConnection
 from psycopg.errors import UniqueViolation
+from pydantic import SecretStr
 from starlette.status import (
     HTTP_200_OK,
     HTTP_201_CREATED,
@@ -29,6 +32,8 @@ from starlette.status import (
     HTTP_422_UNPROCESSABLE_CONTENT,
     HTTP_500_INTERNAL_SERVER_ERROR,
 )
+
+from api.db.query import GetStashBySlugRow
 
 from ..db import models, query
 from ..dependencies import CurrentUser, DBConn, IPAddr
@@ -75,6 +80,8 @@ async def list_stashes(
 
 MAX_SLUG_ATTEMPTS = 10
 
+password_hasher = PasswordHasher()
+
 
 async def try_with_slug(
     operation: Callable[[int], Awaitable[None]],
@@ -83,6 +90,7 @@ async def try_with_slug(
     ip_addr: str | None,
     user: models.User | None,
     expires_at: datetime | None = None,
+    password: SecretStr | None = None,
 ) -> models.Stash:
     if is_binary and user is None:
         raise HTTPException(HTTP_401_UNAUTHORIZED, "You must be logged in to do that")
@@ -108,6 +116,21 @@ async def try_with_slug(
                 if expires_at is not None:
                     await query.create_stash_expiry(
                         db_conn, stash_id=stash.id_, expires_at=expires_at
+                    )
+
+                if password is not None:
+                    try:
+                        password_hash = password_hasher.hash(
+                            password.get_secret_value()
+                        )
+                    except HashingError as e:
+                        logger.error(e)
+                        raise HTTPException(
+                            HTTP_500_INTERNAL_SERVER_ERROR,
+                            "Server could not generate password hash",
+                        )
+                    await query.create_stash_password_hash(
+                        db_conn, stash_id=stash.id_, password_hash=password_hash
                     )
 
                 await operation(stash.id_)
@@ -187,6 +210,7 @@ async def add_text_stash(
     ip_addr: IPAddr,
     current_user: CurrentUser,
     expires_at: datetime | None = None,
+    password: Annotated[SecretStr | None, Body()] = None,
 ) -> models.Stash:
     if ip_addr is None:
         raise HTTPException(
@@ -206,6 +230,7 @@ async def add_text_stash(
         ip_addr=ip_addr,
         user=current_user,
         expires_at=expires_at,
+        password=password,
     )
 
 
@@ -233,6 +258,7 @@ async def add_binary_stash(
     ip_addr: IPAddr,
     current_user: CurrentUser,
     expires_at: datetime | None = None,
+    password: Annotated[SecretStr | None, Body()] = None,
 ) -> models.Stash:
     if current_user is None:
         raise HTTPException(
@@ -289,6 +315,7 @@ async def add_binary_stash(
                 user=current_user,
                 ip_addr=ip_addr,
                 expires_at=expires_at,
+                password=password,
             )
         except Exception:
             try:
@@ -309,8 +336,48 @@ async def add_binary_stash(
         await file.close()
 
 
-@router.get(
-    "/file/{slug}",
+async def raise_if_password_checks_fail(
+    stash_id: int,
+    password: SecretStr | None,
+    db_conn: DBConn,
+    ip_addr: str,
+    current_user: CurrentUser,
+):
+    if not (current_user and current_user.is_admin):
+        if password is None:
+            raise HTTPException(HTTP_403_FORBIDDEN, "This stash is password protected")
+        else:
+            stored_hash = await query.get_stash_password_hash(
+                db_conn, stash_id=stash_id
+            )
+            if stored_hash is None:
+                raise HTTPException(
+                    HTTP_500_INTERNAL_SERVER_ERROR,
+                    "Could not obtain stored hash for protected stash",
+                )
+
+            successful = False
+            try:
+                successful = password_hasher.verify(
+                    stored_hash, password.get_secret_value()
+                )
+            except VerifyMismatchError:
+                pass
+
+            async with db_conn.transaction():
+                await query.create_stash_password_attempt(
+                    db_conn,
+                    stash_id=stash_id,
+                    ip_address=ip_addr,
+                    successful=successful,
+                )
+
+            if not successful:
+                raise HTTPException(HTTP_401_UNAUTHORIZED, "Incorrect password")
+
+
+@router.post(
+    "/file/{slug}/unlock",
     status_code=HTTP_200_OK,
     response_class=FileResponse,
     responses={
@@ -318,18 +385,68 @@ async def add_binary_stash(
         HTTP_400_BAD_REQUEST: {"model": Message},
         HTTP_200_OK: {"content": {"application/octet-stream": {}}},
         HTTP_410_GONE: {"model": Message},
+        HTTP_401_UNAUTHORIZED: {"model": Message},
+        HTTP_403_FORBIDDEN: {"model": Message},
     },
 )
-async def get_file_stash(
-    slug: str, db_conn: DBConn, ip_addr: IPAddr, current_user: CurrentUser
+async def unlock_protected_file_stash(
+    slug: str,
+    password: SecretStr,
+    db_conn: DBConn,
+    ip_addr: IPAddr,
+    current_user: CurrentUser,
 ) -> FileResponse:
     if ip_addr is None:
         raise HTTPException(
-            status_code=HTTP_401_UNAUTHORIZED,
-            detail="The server could not determine your IP address",
+            HTTP_401_UNAUTHORIZED, "Server could not determine your IP address"
         )
 
+    stash = await get_stash_from_slug(slug, db_conn, current_user)
+
+    await raise_if_password_checks_fail(
+        stash.id_, password, db_conn, ip_addr, current_user
+    )
+    return await _get_file_stash_file_response(stash.id_, db_conn, ip_addr)
+
+
+@router.post(
+    "/text/{slug}/unlock",
+    status_code=HTTP_200_OK,
+    response_model=str,
+    responses={
+        HTTP_404_NOT_FOUND: {"model": Message},
+        HTTP_400_BAD_REQUEST: {"model": Message},
+        HTTP_200_OK: {"content": {"application/octet-stream": {}}},
+        HTTP_410_GONE: {"model": Message},
+        HTTP_401_UNAUTHORIZED: {"model": Message},
+        HTTP_403_FORBIDDEN: {"model": Message},
+    },
+)
+async def unlock_protected_text_stash(
+    slug: str,
+    password: SecretStr,
+    db_conn: DBConn,
+    ip_addr: IPAddr,
+    current_user: CurrentUser,
+) -> str:
+    if ip_addr is None:
+        raise HTTPException(
+            HTTP_401_UNAUTHORIZED, "Server could not determine your IP address"
+        )
+
+    stash = await get_stash_from_slug(slug, db_conn, current_user)
+
+    await raise_if_password_checks_fail(
+        stash.id_, password, db_conn, ip_addr, current_user
+    )
+    return await _get_text_stash_text_response(stash.id_, db_conn, ip_addr)
+
+
+async def get_stash_from_slug(
+    slug: str, db_conn: DBConn, current_user: CurrentUser
+) -> GetStashBySlugRow:
     stash = await query.get_stash_by_slug(db_conn, slug=slug)
+
     if stash is None:
         raise HTTPException(
             status_code=HTTP_404_NOT_FOUND, detail="Stash does not exist by that slug"
@@ -345,12 +462,51 @@ async def get_file_stash(
             detail="Stash has expired and is no longer available",
         )
 
+    return stash
+
+
+@router.get(
+    "/file/{slug}",
+    status_code=HTTP_200_OK,
+    response_class=FileResponse,
+    responses={
+        HTTP_404_NOT_FOUND: {"model": Message},
+        HTTP_400_BAD_REQUEST: {"model": Message},
+        HTTP_200_OK: {"content": {"application/octet-stream": {}}},
+        HTTP_410_GONE: {"model": Message},
+        HTTP_401_UNAUTHORIZED: {"model": Message},
+        HTTP_403_FORBIDDEN: {"model": Message},
+    },
+)
+async def get_file_stash(
+    slug: str,
+    db_conn: DBConn,
+    ip_addr: IPAddr,
+    current_user: CurrentUser,
+) -> FileResponse:
+    if ip_addr is None:
+        raise HTTPException(
+            status_code=HTTP_401_UNAUTHORIZED,
+            detail="The server could not determine your IP address",
+        )
+
+    stash = await get_stash_from_slug(slug, db_conn, current_user)
+
     if not stash.is_binary:
         raise HTTPException(
             status_code=HTTP_400_BAD_REQUEST, detail="This is a text stash"
         )
 
-    file_path = await query.get_stash_binary_path(db_conn, stash_id=stash.id_)
+    if stash.is_protected and not (current_user and current_user.is_admin):
+        raise HTTPException(HTTP_401_UNAUTHORIZED, "This stash requires a password")
+
+    return await _get_file_stash_file_response(stash.id_, db_conn, ip_addr)
+
+
+async def _get_file_stash_file_response(
+    stash_id: int, db_conn: DBConn, ip_addr: str
+) -> FileResponse:
+    file_path = await query.get_stash_binary_path(db_conn, stash_id=stash_id)
     if file_path is None:
         raise HTTPException(
             HTTP_404_NOT_FOUND, "Stash content does not exist (is likely revoked)"
@@ -358,14 +514,14 @@ async def get_file_stash(
 
     path = Path(file_path)
     if not path.is_file():
-        logger.error("Missing file on disk for stash %s: %s", slug, path)
+        logger.error("Missing file on disk for stash %d: %s", stash_id, path)
         raise HTTPException(
             status_code=HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Stored file is missing",
         )
 
     async with db_conn.transaction():
-        await query.create_stash_view(db_conn, stash_id=stash.id_, ip_address=ip_addr)
+        await query.create_stash_view(db_conn, stash_id=stash_id, ip_address=ip_addr)
 
     return FileResponse(
         path,
@@ -381,10 +537,15 @@ async def get_file_stash(
         HTTP_404_NOT_FOUND: {"model": Message},
         HTTP_400_BAD_REQUEST: {"model": Message},
         HTTP_410_GONE: {"model": Message},
+        HTTP_401_UNAUTHORIZED: {"model": Message},
+        HTTP_403_FORBIDDEN: {"model": Message},
     },
 )
 async def get_text_stash(
-    slug: str, db_conn: DBConn, ip_addr: IPAddr, current_user: CurrentUser
+    slug: str,
+    db_conn: DBConn,
+    ip_addr: IPAddr,
+    current_user: CurrentUser,
 ) -> str:
     if ip_addr is None:
         raise HTTPException(
@@ -392,35 +553,30 @@ async def get_text_stash(
             detail="The server could not determine your IP address",
         )
 
-    stash = await query.get_stash_by_slug(db_conn, slug=slug)
-    if stash is None:
-        raise HTTPException(
-            status_code=HTTP_404_NOT_FOUND, detail="Stash does not exist by that slug"
-        )
-
-    if (
-        stash.expires_at
-        and stash.expires_at <= datetime.now(UTC)
-        and not (current_user and current_user.is_admin)
-    ):
-        raise HTTPException(
-            status_code=HTTP_410_GONE,
-            detail="Stash has expired and is no longer available",
-        )
+    stash = await get_stash_from_slug(slug, db_conn, current_user)
 
     if stash.is_binary:
         raise HTTPException(
-            status_code=HTTP_400_BAD_REQUEST, detail="This is a binary stash"
+            status_code=HTTP_400_BAD_REQUEST, detail="This is a file stash"
         )
 
-    content = await query.get_stash_text_content(db_conn, stash_id=stash.id_)
+    if stash.is_protected and not (current_user and current_user.is_admin):
+        raise HTTPException(HTTP_401_UNAUTHORIZED, "This stash requires a password")
+
+    return await _get_text_stash_text_response(stash.id_, db_conn, ip_addr)
+
+
+async def _get_text_stash_text_response(
+    stash_id: int, db_conn: DBConn, ip_addr: str
+) -> str:
+    content = await query.get_stash_text_content(db_conn, stash_id=stash_id)
     if content is None:
         raise HTTPException(
             HTTP_404_NOT_FOUND, "Stash content does not exist (is likely revoked)"
         )
 
     async with db_conn.transaction():
-        await query.create_stash_view(db_conn, stash_id=stash.id_, ip_address=ip_addr)
+        await query.create_stash_view(db_conn, stash_id=stash_id, ip_address=ip_addr)
 
     return content
 

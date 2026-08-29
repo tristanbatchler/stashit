@@ -82,6 +82,11 @@ class GetStashRow(pydantic.BaseModel):
     slug: str
     added: datetime.datetime
     added_by_ip: str
+    added_by_user_id: int | None
+    revoked_at: datetime.datetime | None
+    revoked_by_user_id: int | None
+    expires_at: datetime.datetime | None
+    is_protected: bool
 
 
 class GetStashBySlugRow(pydantic.BaseModel):
@@ -96,6 +101,7 @@ class GetStashBySlugRow(pydantic.BaseModel):
     revoked_at: datetime.datetime | None
     revoked_by_user_id: int | None
     expires_at: datetime.datetime | None
+    is_protected: bool
 
 
 class ListStashesRow(pydantic.BaseModel):
@@ -106,8 +112,11 @@ class ListStashesRow(pydantic.BaseModel):
     slug: str
     added: datetime.datetime
     added_by_ip: str
+    added_by_user_id: int | None
     revoked_at: datetime.datetime | None
+    revoked_by_user_id: int | None
     expires_at: datetime.datetime | None
+    is_protected: bool
 
 
 class GetActiveStashLockoutRow(pydantic.BaseModel):
@@ -199,12 +208,23 @@ WHERE token_hash = %(p1)s
 
 GET_STASH: typing.Final[typing.LiteralString] = """-- name: GetStash :one
 SELECT
-    id,
-    is_binary,
-    slug,
-    added,
-    added_by_ip
-FROM stashes
+    s.id,
+    s.is_binary,
+    s.slug,
+    s.added,
+    s.added_by_ip,
+    s.added_by_user_id,
+    r.revoked_at,
+    r.revoked_by_user_id,
+    e.expires_at,
+    CASE WHEN p.password_hash IS NOT NULL THEN true ELSE false END AS is_protected
+FROM stashes s
+LEFT JOIN stashes_revocations r
+    ON r.stash_id = s.id
+LEFT JOIN stashes_expiries e
+    ON e.stash_id = s.id
+LEFT JOIN stashes_password_hashes p
+    ON p.stash_id = s.id
 WHERE id = %(p1)s
 """
 
@@ -218,12 +238,15 @@ SELECT
     s.added_by_user_id,
     r.revoked_at,
     r.revoked_by_user_id,
-    e.expires_at
+    e.expires_at,
+    CASE WHEN p.password_hash IS NOT NULL THEN true ELSE false END AS is_protected
 FROM stashes s
 LEFT JOIN stashes_revocations r
     ON r.stash_id = s.id
 LEFT JOIN stashes_expiries e
     ON e.stash_id = s.id
+LEFT JOIN stashes_password_hashes p
+    ON p.stash_id = s.id
 WHERE s.slug = %(p1)s
 """
 
@@ -234,13 +257,18 @@ SELECT
     s.slug,
     s.added,
     s.added_by_ip,
+    s.added_by_user_id,
     r.revoked_at,
-    e.expires_at
+    r.revoked_by_user_id,
+    e.expires_at,
+    CASE WHEN p.password_hash IS NOT NULL THEN true ELSE false END AS is_protected
 FROM stashes s
 LEFT JOIN stashes_revocations r
     ON r.stash_id = s.id
 LEFT JOIN stashes_expiries e
-    on e.stash_id = s.id
+    ON e.stash_id = s.id
+LEFT JOIN stashes_password_hashes p
+    ON p.stash_id = s.id
 ORDER BY s.added DESC, s.id DESC
 LIMIT %(p1)s OFFSET %(p2)s
 """
@@ -536,19 +564,19 @@ async def get_stash(conn: ConnectionLike, *, id_: int) -> GetStashRow | None:
     row = await (await conn.execute(GET_STASH, {"p1": id_})).fetchone()
     if row is None:
         return None
-    return GetStashRow(id_=row[0], is_binary=row[1], slug=row[2], added=row[3], added_by_ip=str(row[4]))
+    return GetStashRow(id_=row[0], is_binary=row[1], slug=row[2], added=row[3], added_by_ip=str(row[4]), added_by_user_id=row[5], revoked_at=row[6], revoked_by_user_id=row[7], expires_at=row[8], is_protected=row[9])
 
 
 async def get_stash_by_slug(conn: ConnectionLike, *, slug: str) -> GetStashBySlugRow | None:
     row = await (await conn.execute(GET_STASH_BY_SLUG, {"p1": slug})).fetchone()
     if row is None:
         return None
-    return GetStashBySlugRow(id_=row[0], is_binary=row[1], slug=row[2], added=row[3], added_by_ip=str(row[4]), added_by_user_id=row[5], revoked_at=row[6], revoked_by_user_id=row[7], expires_at=row[8])
+    return GetStashBySlugRow(id_=row[0], is_binary=row[1], slug=row[2], added=row[3], added_by_ip=str(row[4]), added_by_user_id=row[5], revoked_at=row[6], revoked_by_user_id=row[7], expires_at=row[8], is_protected=row[9])
 
 
 def list_stashes(conn: ConnectionLike, *, limit: int, offset: int) -> QueryResults[ListStashesRow]:
     def _decode_hook(row: psycopg.rows.TupleRow) -> ListStashesRow:
-        return ListStashesRow(id_=row[0], is_binary=row[1], slug=row[2], added=row[3], added_by_ip=str(row[4]), revoked_at=row[5], expires_at=row[6])
+        return ListStashesRow(id_=row[0], is_binary=row[1], slug=row[2], added=row[3], added_by_ip=str(row[4]), added_by_user_id=row[5], revoked_at=row[6], revoked_by_user_id=row[7], expires_at=row[8], is_protected=row[9])
 
     return QueryResults(conn, LIST_STASHES, _decode_hook, {"p1": limit, "p2": offset})
 
