@@ -8,8 +8,10 @@ GOOGLE_SCOPES = [
     "https://www.googleapis.com/auth/userinfo.profile",
 ]
 
+callback_uri = settings.WEB_BASE_URL + "/auth/google/callback"
 
-def create_google_flow(redirect_uri: str) -> Flow:
+
+def create_google_flow() -> Flow:
     return Flow.from_client_config(  # pyright: ignore[reportUnknownMemberType]
         {
             "web": {
@@ -17,10 +19,10 @@ def create_google_flow(redirect_uri: str) -> Flow:
                 "client_secret": settings.GOOGLE_CLIENT_SECRET,
                 "auth_uri": "https://accounts.google.com/o/oauth2/v2/auth",
                 "token_uri": "https://oauth2.googleapis.com/token",
-                "redirect_uris": [redirect_uri],
+                "redirect_uris": [callback_uri],
             }
         },
         scopes=GOOGLE_SCOPES,
-        redirect_uri=redirect_uri,
+        redirect_uri=callback_uri,
         autogenerate_code_verifier=True,
     )

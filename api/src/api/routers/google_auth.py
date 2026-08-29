@@ -19,7 +19,7 @@ from starlette.status import (
 
 from ..auth_service import create_google_flow
 from ..db import models, query
-from ..dependencies import CurrentUser, DBConn, IPAddr, NamedRouteURIs
+from ..dependencies import CurrentUser, DBConn, IPAddr
 from ..response_models import GoogleLoginLocation, Message
 from ..settings import settings
 
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth/google")
 
-GOOGLE_CALLBACK_ROUTE_ID = "google_callback"
+# GOOGLE_CALLBACK_ROUTE_ID = "google_callback"
 
 
 @router.get(
@@ -42,7 +42,7 @@ GOOGLE_CALLBACK_ROUTE_ID = "google_callback"
 async def google_login(
     db_conn: DBConn,
     ip_addr: IPAddr,
-    named_route_uris: NamedRouteURIs,
+    # named_route_uris: NamedRouteURIs,
 ) -> GoogleLoginLocation:
     if ip_addr is None:
         raise HTTPException(
@@ -50,12 +50,12 @@ async def google_login(
             detail="The server could not determine your IP address",
         )
 
-    redirect_uri = named_route_uris(GOOGLE_CALLBACK_ROUTE_ID)
+    # redirect_uri = named_route_uris(GOOGLE_CALLBACK_ROUTE_ID)
 
     state = secrets.token_urlsafe(32)
     expires_at = datetime.now(UTC) + timedelta(minutes=10)
 
-    flow = create_google_flow(redirect_uri)
+    flow = create_google_flow()
 
     authorization_url, _ = cast(
         tuple[str, str],
@@ -85,7 +85,7 @@ async def google_login(
 
 @router.get(
     "/callback",
-    name=GOOGLE_CALLBACK_ROUTE_ID,
+    # name=GOOGLE_CALLBACK_ROUTE_ID,
     status_code=HTTP_303_SEE_OTHER,
     responses={HTTP_400_BAD_REQUEST: {"model": Message}},
 )
@@ -93,9 +93,9 @@ async def google_callback(
     code: str,
     state: str,
     db_conn: DBConn,
-    named_route_uris: NamedRouteURIs,
+    # named_route_uris: NamedRouteURIs,
 ) -> RedirectResponse:
-    redirect_uri = named_route_uris(GOOGLE_CALLBACK_ROUTE_ID)
+    # redirect_uri = named_route_uris(GOOGLE_CALLBACK_ROUTE_ID)
 
     oauth_state = await query.get_o_auth_state(
         db_conn,
@@ -108,7 +108,7 @@ async def google_callback(
             detail="Invalid OAuth state",
         )
 
-    flow = create_google_flow(redirect_uri)
+    flow = create_google_flow()
     flow.fetch_token(  # pyright: ignore[reportUnknownMemberType]
         code=code,
         code_verifier=oauth_state.code_verifier,
