@@ -309,7 +309,9 @@ async def get_file_stash(slug: str, db_conn: DBConn, ip_addr: IPAddr) -> FileRes
 
     file_path = await query.get_stash_binary_path(db_conn, stash_id=stash.id_)
     if file_path is None:
-        raise RuntimeError("Stash binary path select returned no rows")
+        raise HTTPException(
+            HTTP_404_NOT_FOUND, "Stash content does not exist (is likely revoked)"
+        )
 
     path = Path(file_path)
     if not path.is_file():
@@ -357,7 +359,9 @@ async def get_text_stash(slug: str, db_conn: DBConn, ip_addr: IPAddr) -> str:
 
     content = await query.get_stash_text_content(db_conn, stash_id=stash.id_)
     if content is None:
-        raise RuntimeError("Stash content select returned no rows")
+        raise HTTPException(
+            HTTP_404_NOT_FOUND, "Stash content does not exist (is likely revoked)"
+        )
 
     async with db_conn.transaction():
         await query.create_stash_view(db_conn, stash_id=stash.id_, ip_address=ip_addr)

@@ -45,7 +45,7 @@ export const load: PageServerLoad = async ({ params }) => {
 	});
 
 	if (textError || content === undefined || content === null) {
-		error(500, { message: 'Could not load text content' });
+		error(500, { message: `Could not load text content: ${textError.detail}` });
 	}
 
 	return {
