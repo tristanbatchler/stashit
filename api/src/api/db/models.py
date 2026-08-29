@@ -137,5 +137,6 @@ class User(pydantic.BaseModel):
     id_: int
     google_sub: str
     email: str
+    name: str
     created: datetime.datetime
     last_login: datetime.datetime

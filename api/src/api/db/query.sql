@@ -26,9 +26,10 @@ RETURNING *;
 -- name: UpsertUser :one
 INSERT INTO users (
     google_sub,
-    email
+    email, 
+    name
 )
-VALUES ($1, $2)
+VALUES ($1, $2, $3)
 ON CONFLICT (google_sub)
 DO UPDATE SET
     email = EXCLUDED.email,
@@ -40,6 +41,7 @@ SELECT
     u.id,
     u.google_sub,
     u.email,
+    u.name, 
     u.created,
     u.last_login
 FROM users u

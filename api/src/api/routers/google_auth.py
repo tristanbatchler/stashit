@@ -143,11 +143,18 @@ async def google_callback(
             detail="Google identity does not contain email",
         )
 
+    name = google_identity.get("name")
+    if not isinstance(name, str):
+        raise HTTPException(
+            status_code=HTTP_400_BAD_REQUEST,
+            detail="Google identity does not contain name",
+        )
+
     logger.info(
         "Google OAuth successful: sub=%s email=%s name=%s picture=%s",
         sub,
         email,
-        google_identity.get("name"),
+        name,
         google_identity.get("picture"),
     )
 
@@ -163,7 +170,7 @@ async def google_callback(
             state=state,
         )
 
-        user = await query.upsert_user(db_conn, google_sub=sub, email=email)
+        user = await query.upsert_user(db_conn, google_sub=sub, email=email, name=name)
 
         if user is None:
             raise HTTPException(HTTP_500_INTERNAL_SERVER_ERROR, "Error upserting user")

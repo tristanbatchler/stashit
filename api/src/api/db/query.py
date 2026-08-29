@@ -156,14 +156,15 @@ RETURNING state, code_verifier, created, expires, ip_address
 UPSERT_USER: typing.Final[typing.LiteralString] = """-- name: UpsertUser :one
 INSERT INTO users (
     google_sub,
-    email
+    email, 
+    name
 )
-VALUES (%(p1)s, %(p2)s)
+VALUES (%(p1)s, %(p2)s, %(p3)s)
 ON CONFLICT (google_sub)
 DO UPDATE SET
     email = EXCLUDED.email,
     last_login = CURRENT_TIMESTAMP
-RETURNING id, google_sub, email, created, last_login
+RETURNING id, google_sub, email, name, created, last_login
 """
 
 GET_USER_BY_SESSION_TOKEN_HASH: typing.Final[typing.LiteralString] = """-- name: GetUserBySessionTokenHash :one
@@ -171,6 +172,7 @@ SELECT
     u.id,
     u.google_sub,
     u.email,
+    u.name, 
     u.created,
     u.last_login
 FROM users u
@@ -459,18 +461,18 @@ async def delete_o_auth_state(conn: ConnectionLike, *, state: str) -> models.Oau
     return models.OauthState(state=row[0], code_verifier=row[1], created=row[2], expires=row[3], ip_address=str(row[4]))
 
 
-async def upsert_user(conn: ConnectionLike, *, google_sub: str, email: str) -> models.User | None:
-    row = await (await conn.execute(UPSERT_USER, {"p1": google_sub, "p2": email})).fetchone()
+async def upsert_user(conn: ConnectionLike, *, google_sub: str, email: str, name: str) -> models.User | None:
+    row = await (await conn.execute(UPSERT_USER, {"p1": google_sub, "p2": email, "p3": name})).fetchone()
     if row is None:
         return None
-    return models.User(id_=row[0], google_sub=row[1], email=row[2], created=row[3], last_login=row[4])
+    return models.User(id_=row[0], google_sub=row[1], email=row[2], name=row[3], created=row[4], last_login=row[5])
 
 
 async def get_user_by_session_token_hash(conn: ConnectionLike, *, token_hash: str) -> models.User | None:
     row = await (await conn.execute(GET_USER_BY_SESSION_TOKEN_HASH, {"p1": token_hash})).fetchone()
     if row is None:
         return None
-    return models.User(id_=row[0], google_sub=row[1], email=row[2], created=row[3], last_login=row[4])
+    return models.User(id_=row[0], google_sub=row[1], email=row[2], name=row[3], created=row[4], last_login=row[5])
 
 
 async def create_session(conn: ConnectionLike, *, user_id: int, token_hash: str, expires: datetime.datetime) -> None:

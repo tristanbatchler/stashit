@@ -4,7 +4,7 @@
 
 	import favicon from '$lib/assets/favicon.svg';
 
-	let { children } = $props();
+	let { children, data } = $props();
 </script>
 
 <svelte:head>
@@ -12,19 +12,23 @@
 </svelte:head>
 
 <header class="container">
-<nav>
-  <ul>
-    <li><a href="{resolve('/')}"><strong>Stash It!</strong></a></li>
-  </ul>
-  <ul>
-    <li><a href={resolve('/stashes/new')}>New stash</a></li>
-    <li><a href="#">About</a></li>
-    <li><a href="#">Contact</a></li>
-    <li><a href="/auth/google">Log in with Google</a></li>
-  </ul>
-</nav>
+	<nav>
+		<ul>
+			<li><a href={resolve('/')}><strong>Stash It!</strong></a></li>
+		</ul>
+
+		<ul>
+			<li><a href={resolve('/stashes/new')}>New stash</a></li>
+
+			{#if data.user}
+				<li>Hi, {data.user.name}</li>
+			{:else}
+				<li><a href={resolve('/auth/google')}>Log in</a></li>
+			{/if}
+		</ul>
+	</nav>
 </header>
+
 <main class="container">
 	{@render children()}
 </main>
-

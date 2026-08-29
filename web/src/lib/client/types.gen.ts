@@ -135,6 +135,10 @@ export type User = {
      */
     email: string;
     /**
+     * Name
+     */
+    name: string;
+    /**
      * Created
      */
     created: string;
