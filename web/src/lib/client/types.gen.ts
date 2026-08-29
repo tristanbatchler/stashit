@@ -37,40 +37,6 @@ export type CreateStashRow = {
 };
 
 /**
- * CurrentUser
- */
-export type CurrentUser = {
-    /**
-     * Id
-     */
-    id_: number;
-    /**
-     * Google Sub
-     */
-    google_sub: string;
-    /**
-     * Email
-     */
-    email: string;
-    /**
-     * Name
-     */
-    name: string;
-    /**
-     * Created
-     */
-    created: string;
-    /**
-     * Last Login
-     */
-    last_login: string;
-    /**
-     * Is Admin
-     */
-    is_admin: boolean;
-};
-
-/**
  * GetStashBySlugRow
  */
 export type GetStashBySlugRow = {
@@ -166,6 +132,40 @@ export type Message = {
      * Detail
      */
     detail: string;
+};
+
+/**
+ * User
+ */
+export type User = {
+    /**
+     * Id
+     */
+    id_: number;
+    /**
+     * Google Sub
+     */
+    google_sub: string;
+    /**
+     * Email
+     */
+    email: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Created
+     */
+    created: string;
+    /**
+     * Last Login
+     */
+    last_login: string;
+    /**
+     * Is Admin
+     */
+    is_admin: boolean;
 };
 
 /**
@@ -600,7 +600,7 @@ export type GetMeApiV1AuthGoogleMeGetResponses = {
      *
      * Successful Response
      */
-    200: CurrentUser | null;
+    200: User | null;
 };
 
 export type GetMeApiV1AuthGoogleMeGetResponse = GetMeApiV1AuthGoogleMeGetResponses[keyof GetMeApiV1AuthGoogleMeGetResponses];
