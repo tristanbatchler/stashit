@@ -5,6 +5,14 @@
 	import favicon from '$lib/assets/favicon.svg';
 
 	let { children, data } = $props();
+
+  async function logout() {
+		await fetch(resolve('/auth/google/logout'), {
+			method: 'POST'
+		});
+
+		location.href = resolve('/');
+	}
 </script>
 
 <svelte:head>
@@ -21,16 +29,18 @@
 			<li><a href={resolve('/stashes/new')}>New stash</a></li>
 
 			{#if data.user}
-				<li>
-          <form method="POST" action={resolve('/auth/google/logout')}>
-            <button type="submit" class="secondary">
-              Log out {data.user.name}
-            </button>
-          </form>
-        </li>
-			{:else}
-				<li><a href={resolve('/auth/google')}>Log in</a></li>
-			{/if}
+      <li>
+        <button
+          type="button"
+          class="secondary"
+          onclick={logout}
+        >
+          Log out {data.user.name}
+        </button>
+      </li>
+    {:else}
+      <li><a href={resolve('/auth/google')}>Log in</a></li>
+    {/if}
 		</ul>
 	</nav>
 </header>
