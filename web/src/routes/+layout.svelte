@@ -21,7 +21,13 @@
 			<li><a href={resolve('/stashes/new')}>New stash</a></li>
 
 			{#if data.user}
-				<li>Hi, {data.user.name}</li>
+				<li>
+          <form method="POST" action={resolve('/auth/google/logout')}>
+            <button type="submit" class="secondary">
+              Log out {data.user.name}
+            </button>
+          </form>
+        </li>
 			{:else}
 				<li><a href={resolve('/auth/google')}>Log in</a></li>
 			{/if}

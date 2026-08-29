@@ -60,7 +60,7 @@
 	</button>
 </form>
 
-{#if progressPercent !== null}
+{#if isSubmitting && progressPercent !== null}
 	<div>
 		<label for="upload-progress">
 			Upload progress: {progressPercent}%

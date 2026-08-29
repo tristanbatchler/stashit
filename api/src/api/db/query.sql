@@ -58,6 +58,10 @@ INSERT INTO sessions (
 )
 VALUES ($1, $2, $3);
 
+-- name: DeleteSession :exec
+DELETE FROM sessions
+WHERE token_hash = $1;
+
 -- name: GetStash :one
 SELECT
     id,

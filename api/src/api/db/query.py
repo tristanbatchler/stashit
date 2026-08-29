@@ -28,6 +28,7 @@ __all__: collections.abc.Sequence[str] = (
     "create_stash_text_content",
     "create_stash_view",
     "delete_o_auth_state",
+    "delete_session",
     "get_active_stash_lockout",
     "get_o_auth_state",
     "get_stash",
@@ -188,6 +189,11 @@ INSERT INTO sessions (
     expires
 )
 VALUES (%(p1)s, %(p2)s, %(p3)s)
+"""
+
+DELETE_SESSION: typing.Final[typing.LiteralString] = """-- name: DeleteSession :exec
+DELETE FROM sessions
+WHERE token_hash = %(p1)s
 """
 
 GET_STASH: typing.Final[typing.LiteralString] = """-- name: GetStash :one
@@ -477,6 +483,10 @@ async def get_user_by_session_token_hash(conn: ConnectionLike, *, token_hash: st
 
 async def create_session(conn: ConnectionLike, *, user_id: int, token_hash: str, expires: datetime.datetime) -> None:
     await conn.execute(CREATE_SESSION, {"p1": user_id, "p2": token_hash, "p3": expires})
+
+
+async def delete_session(conn: ConnectionLike, *, token_hash: str) -> None:
+    await conn.execute(DELETE_SESSION, {"p1": token_hash})
 
 
 async def get_stash(conn: ConnectionLike, *, id_: int) -> GetStashRow | None:

@@ -535,6 +535,31 @@ export type GetMeApiV1AuthGoogleMeGetResponses = {
 
 export type GetMeApiV1AuthGoogleMeGetResponse = GetMeApiV1AuthGoogleMeGetResponses[keyof GetMeApiV1AuthGoogleMeGetResponses];
 
+export type GoogleLogoutApiV1AuthGoogleLogoutPostData = {
+    body?: never;
+    path?: never;
+    query?: never;
+    url: '/api/v1/auth/google/logout';
+};
+
+export type GoogleLogoutApiV1AuthGoogleLogoutPostErrors = {
+    /**
+     * Internal Server Error
+     */
+    500: Message;
+};
+
+export type GoogleLogoutApiV1AuthGoogleLogoutPostError = GoogleLogoutApiV1AuthGoogleLogoutPostErrors[keyof GoogleLogoutApiV1AuthGoogleLogoutPostErrors];
+
+export type GoogleLogoutApiV1AuthGoogleLogoutPostResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type GoogleLogoutApiV1AuthGoogleLogoutPostResponse = GoogleLogoutApiV1AuthGoogleLogoutPostResponses[keyof GoogleLogoutApiV1AuthGoogleLogoutPostResponses];
+
 export type GetConfigApiV1ConfigMaxUploadBytesGetData = {
     body?: never;
     path?: never;

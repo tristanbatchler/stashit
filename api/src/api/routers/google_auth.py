@@ -4,12 +4,13 @@ import secrets
 from datetime import UTC, datetime, timedelta
 from typing import cast
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 from google.auth.transport import requests
 from google.oauth2 import id_token
 from starlette.status import (
     HTTP_200_OK,
+    HTTP_204_NO_CONTENT,
     HTTP_303_SEE_OTHER,
     HTTP_400_BAD_REQUEST,
     HTTP_401_UNAUTHORIZED,
@@ -202,3 +203,30 @@ async def google_callback(
 @router.get("/me", response_model=models.User | None, status_code=HTTP_200_OK)
 async def get_me(current_user: CurrentUser) -> models.User | None:
     return current_user
+
+
+@router.post("/logout", status_code=HTTP_204_NO_CONTENT)
+async def google_logout(
+    request: Request,
+    db_conn: DBConn,
+) -> Response:
+    session_token = request.cookies.get("session")
+
+    if session_token is not None:
+        token_hash = hashlib.sha256(session_token.encode()).hexdigest()
+
+        async with db_conn.transaction():
+            await query.delete_session(
+                db_conn,
+                token_hash=token_hash,
+            )
+
+    response = Response(status_code=HTTP_204_NO_CONTENT)
+    response.delete_cookie(
+        key="session",
+        httponly=True,
+        secure=settings.APP_SESSION_COOKIE_SECURE,
+        samesite="lax",
+    )
+
+    return response
