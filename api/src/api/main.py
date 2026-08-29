@@ -58,10 +58,6 @@ main_router.include_router(stashes_router)
 main_router.include_router(google_auth_router)
 app.include_router(main_router)
 
-google_redirect_uri = settings.API_BASE_URL + main_router.url_path_for(
-    GOOGLE_CALLBACK_ROUTE_ID
-)
-
 
 @main_router.get(
     "/config/max-upload-bytes", status_code=HTTP_200_OK, response_model=int
