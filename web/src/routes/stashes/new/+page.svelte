@@ -5,6 +5,9 @@
 	let text = $state('');
 	let fileInput: HTMLInputElement | null = null;
 
+	let hasExpiry = $state(false);
+	let expiresAt = $state('');
+
 	let isSubmitting = $state(false);
 	let progressPercent = $state<number | null>(null);
 	let stash = $state<CreatedStash | null>(null);
@@ -24,10 +27,9 @@
 			stash = await createStash(
 				file,
 				text,
+				hasExpiry ? new Date(expiresAt).toISOString() : undefined,
 				(loaded, total) => {
-					progressPercent = Math.round(
-						(loaded / total) * 100,
-					);
+					progressPercent = Math.round((loaded / total) * 100);
 				},
 			);
 		} catch (err) {
@@ -53,6 +55,24 @@
 			Or a file...
 			<input bind:this={fileInput} name="file" type="file" />
 		</label>
+	</fieldset>
+
+	<fieldset>
+		<label>
+			<input type="checkbox" bind:checked={hasExpiry} />
+			Set an expiry
+		</label>
+
+		{#if hasExpiry}
+			<label>
+				Expires at
+				<input
+					type="datetime-local"
+					bind:value={expiresAt}
+					required
+				/>
+			</label>
+		{/if}
 	</fieldset>
 
 	<button type="submit" aria-busy={isSubmitting} disabled={isSubmitting}>

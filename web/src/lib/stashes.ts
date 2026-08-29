@@ -29,6 +29,7 @@ function getErrorMessage(error: unknown, fallback: string): string {
 export async function createStash(
 	file: File | undefined,
 	text: string,
+	expiresAt: string | undefined,
 	onProgress: (loaded: number, total: number) => void,
 ): Promise<CreatedStash> {
 	if (file && file.size > 0) {
@@ -52,14 +53,17 @@ export async function createStash(
 			);
 		}
 
-		const client = createUploadClient(
-			onProgress,
-		);
+		const client = createUploadClient(onProgress);
 
 		const response =
 			await addBinaryStashApiV1StashesFilePost({
 				client,
-				body: { file },
+				body: {
+					file,
+				},
+				query: {
+					expires_at: expiresAt
+				}
 			});
 
 		if (response.error) {
@@ -78,6 +82,9 @@ export async function createStash(
 		const response =
 			await addTextStashApiV1StashesTextPost({
 				body: text,
+				query: {
+					expires_at: expiresAt
+				}
 			});
 
 		if (response.error) {

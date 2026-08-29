@@ -10,16 +10,16 @@ export const load: PageServerLoad = async ({ params, parent }) => {
 	const { slug } = params;
 	const { user } = await parent();
 
-	const { data: metadata, error: metaError } =
+	const { data: metadata, error: metadataError } =
 		await getStashMetadataApiV1StashesMetadataSlugGet({
 			path: { slug }
 		});
 
-	if (metaError || !metadata) {
+	if (metadataError || !metadata) {
 		error(404, {
 			message:
-				metaError && typeof metaError === 'object' && 'detail' in metaError
-					? String(metaError.detail)
+				metadataError && 'detail' in metadataError
+					? String(metadataError.detail)
 					: 'Could not load stash'
 		});
 	}
@@ -35,49 +35,35 @@ export const load: PageServerLoad = async ({ params, parent }) => {
 		})
 	]);
 
-	if (metadata.revoked_at) {
-		return {
-			slug,
-			user,
-			metadata,
-			isBinary: metadata.is_binary,
-			views,
-			uniqueViews
-		};
+	const result = {
+		slug,
+		user,
+		metadata,
+		isBinary: metadata.is_binary,
+		views,
+		uniqueViews
+	};
+
+	if (metadata.revoked_at || metadata.is_binary) {
+		return result;
 	}
 
-	if (metadata.is_binary) {
-		return {
-			slug,
-			user,
-			metadata,
-			isBinary: true as const,
-			views,
-			uniqueViews
-		};
-	}
-
-	const { data: content, error: textError } =
+	const { data: content, error: contentError } =
 		await getTextStashApiV1StashesTextSlugGet({
 			path: { slug }
 		});
 
-	if (textError || content === undefined || content === null) {
+	if (contentError || content === undefined) {
 		error(500, {
 			message:
-				textError && typeof textError === 'object' && 'detail' in textError
-					? String(textError.detail)
+				contentError && 'detail' in contentError
+					? String(contentError.detail)
 					: 'Could not load text content'
 		});
 	}
 
 	return {
-		slug,
-		user,
-		metadata,
-		isBinary: false as const,
-		content,
-		views,
-		uniqueViews
+		...result,
+		content
 	};
 };

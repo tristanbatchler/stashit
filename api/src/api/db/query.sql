@@ -85,10 +85,13 @@ SELECT
     s.added_by_ip,
     s.added_by_user_id,
     r.revoked_at,
-    r.revoked_by_user_id
+    r.revoked_by_user_id,
+    e.expires_at
 FROM stashes s
 LEFT JOIN stashes_revocations r
     ON r.stash_id = s.id
+LEFT JOIN stashes_expiries e
+    ON e.stash_id = s.id
 WHERE s.slug = $1;
 
 
@@ -131,7 +134,9 @@ RETURNING
     id,
     is_binary,
     slug,
-    added;
+    added,
+    added_by_ip,
+    added_by_user_id;
 
 
 -- name: CreateStashTextContent :exec

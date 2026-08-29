@@ -1,5 +1,6 @@
 import logging
 from collections.abc import Awaitable, Callable, Sequence
+from datetime import datetime
 from pathlib import Path
 from typing import Annotated
 from uuid import uuid4
@@ -70,7 +71,8 @@ async def try_with_slug(
     db_conn: AsyncConnection,
     ip_addr: str | None,
     user: models.User | None,
-) -> query.CreateStashRow:
+    expires_at: datetime | None = None,
+) -> models.Stash:
     if is_binary and user is None:
         raise HTTPException(HTTP_401_UNAUTHORIZED, "You must be logged in to do that")
     elif ip_addr is None:
@@ -91,6 +93,12 @@ async def try_with_slug(
                 )
                 if stash is None:
                     raise RuntimeError("stash insert returned no row")
+
+                if expires_at is not None:
+                    await query.create_stash_expiry(
+                        db_conn, stash_id=stash.id_, expires_at=expires_at
+                    )
+
                 await operation(stash.id_)
                 return stash
         except UniqueViolation:
@@ -161,13 +169,14 @@ async def revoke_stash(
             )
 
 
-@router.post("/text", status_code=HTTP_201_CREATED, response_model=query.CreateStashRow)
+@router.post("/text", status_code=HTTP_201_CREATED, response_model=models.Stash)
 async def add_text_stash(
     content: Annotated[str, Body()],
     db_conn: DBConn,
     ip_addr: IPAddr,
     current_user: CurrentUser,
-) -> query.CreateStashRow:
+    expires_at: datetime | None = None,
+) -> models.Stash:
     if ip_addr is None:
         raise HTTPException(
             status_code=HTTP_401_UNAUTHORIZED,
@@ -180,7 +189,12 @@ async def add_text_stash(
         )
 
     return await try_with_slug(
-        operation, is_binary=False, db_conn=db_conn, ip_addr=ip_addr, user=current_user
+        operation,
+        is_binary=False,
+        db_conn=db_conn,
+        ip_addr=ip_addr,
+        user=current_user,
+        expires_at=expires_at,
     )
 
 
@@ -196,15 +210,19 @@ def maybe_raise_content_too_large_exception(current_bytes: int):
 @router.post(
     "/file",
     status_code=HTTP_201_CREATED,
-    response_model=query.CreateStashRow,
+    response_model=models.Stash,
     responses={
         HTTP_422_UNPROCESSABLE_CONTENT: {"model": Message},
         HTTP_413_CONTENT_TOO_LARGE: {"model": Message},
     },
 )
 async def add_binary_stash(
-    file: UploadFile, db_conn: DBConn, ip_addr: IPAddr, current_user: CurrentUser
-) -> query.CreateStashRow:
+    file: UploadFile,
+    db_conn: DBConn,
+    ip_addr: IPAddr,
+    current_user: CurrentUser,
+    expires_at: datetime | None = None,
+) -> models.Stash:
     if current_user is None:
         raise HTTPException(
             status_code=HTTP_401_UNAUTHORIZED,
@@ -259,6 +277,7 @@ async def add_binary_stash(
                 db_conn=db_conn,
                 user=current_user,
                 ip_addr=ip_addr,
+                expires_at=expires_at,
             )
         except Exception:
             try:

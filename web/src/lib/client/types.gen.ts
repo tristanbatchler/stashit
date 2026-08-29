@@ -15,28 +15,6 @@ export type BodyAddBinaryStashApiV1StashesFilePost = {
 };
 
 /**
- * CreateStashRow
- */
-export type CreateStashRow = {
-    /**
-     * Id
-     */
-    id_: number;
-    /**
-     * Is Binary
-     */
-    is_binary: boolean;
-    /**
-     * Slug
-     */
-    slug: string;
-    /**
-     * Added
-     */
-    added: string;
-};
-
-/**
  * GetStashBySlugRow
  */
 export type GetStashBySlugRow = {
@@ -72,6 +50,10 @@ export type GetStashBySlugRow = {
      * Revoked By User Id
      */
     revoked_by_user_id: number | null;
+    /**
+     * Expires At
+     */
+    expires_at: string | null;
 };
 
 /**
@@ -132,6 +114,36 @@ export type Message = {
      * Detail
      */
     detail: string;
+};
+
+/**
+ * Stash
+ */
+export type Stash = {
+    /**
+     * Id
+     */
+    id_: number;
+    /**
+     * Is Binary
+     */
+    is_binary: boolean;
+    /**
+     * Slug
+     */
+    slug: string;
+    /**
+     * Added
+     */
+    added: string;
+    /**
+     * Added By Ip
+     */
+    added_by_ip: string;
+    /**
+     * Added By User Id
+     */
+    added_by_user_id: number | null;
 };
 
 /**
@@ -292,7 +304,12 @@ export type AddTextStashApiV1StashesTextPostData = {
      */
     body: string;
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * Expires At
+         */
+        expires_at?: string | null;
+    };
     url: '/api/v1/stashes/text';
 };
 
@@ -313,7 +330,7 @@ export type AddTextStashApiV1StashesTextPostResponses = {
     /**
      * Successful Response
      */
-    201: CreateStashRow;
+    201: Stash;
 };
 
 export type AddTextStashApiV1StashesTextPostResponse = AddTextStashApiV1StashesTextPostResponses[keyof AddTextStashApiV1StashesTextPostResponses];
@@ -321,7 +338,12 @@ export type AddTextStashApiV1StashesTextPostResponse = AddTextStashApiV1StashesT
 export type AddBinaryStashApiV1StashesFilePostData = {
     body: BodyAddBinaryStashApiV1StashesFilePost;
     path?: never;
-    query?: never;
+    query?: {
+        /**
+         * Expires At
+         */
+        expires_at?: string | null;
+    };
     url: '/api/v1/stashes/file';
 };
 
@@ -346,7 +368,7 @@ export type AddBinaryStashApiV1StashesFilePostResponses = {
     /**
      * Successful Response
      */
-    201: CreateStashRow;
+    201: Stash;
 };
 
 export type AddBinaryStashApiV1StashesFilePostResponse = AddBinaryStashApiV1StashesFilePostResponses[keyof AddBinaryStashApiV1StashesFilePostResponses];

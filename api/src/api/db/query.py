@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 __all__: collections.abc.Sequence[str] = (
-    "CreateStashRow",
     "GetActiveStashLockoutRow",
     "GetOAuthStateRow",
     "GetStashBySlugRow",
@@ -96,6 +95,7 @@ class GetStashBySlugRow(pydantic.BaseModel):
     added_by_user_id: int | None
     revoked_at: datetime.datetime | None
     revoked_by_user_id: int | None
+    expires_at: datetime.datetime | None
 
 
 class ListStashesRow(pydantic.BaseModel):
@@ -107,15 +107,6 @@ class ListStashesRow(pydantic.BaseModel):
     added: datetime.datetime
     added_by_ip: str
     revoked_at: datetime.datetime | None
-
-
-class CreateStashRow(pydantic.BaseModel):
-    model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
-
-    id_: int
-    is_binary: bool
-    slug: str
-    added: datetime.datetime
 
 
 class GetActiveStashLockoutRow(pydantic.BaseModel):
@@ -225,10 +216,13 @@ SELECT
     s.added_by_ip,
     s.added_by_user_id,
     r.revoked_at,
-    r.revoked_by_user_id
+    r.revoked_by_user_id,
+    e.expires_at
 FROM stashes s
 LEFT JOIN stashes_revocations r
     ON r.stash_id = s.id
+LEFT JOIN stashes_expiries e
+    ON e.stash_id = s.id
 WHERE s.slug = %(p1)s
 """
 
@@ -271,7 +265,9 @@ RETURNING
     id,
     is_binary,
     slug,
-    added
+    added,
+    added_by_ip,
+    added_by_user_id
 """
 
 CREATE_STASH_TEXT_CONTENT: typing.Final[typing.LiteralString] = """-- name: CreateStashTextContent :exec
@@ -543,7 +539,7 @@ async def get_stash_by_slug(conn: ConnectionLike, *, slug: str) -> GetStashBySlu
     row = await (await conn.execute(GET_STASH_BY_SLUG, {"p1": slug})).fetchone()
     if row is None:
         return None
-    return GetStashBySlugRow(id_=row[0], is_binary=row[1], slug=row[2], added=row[3], added_by_ip=str(row[4]), added_by_user_id=row[5], revoked_at=row[6], revoked_by_user_id=row[7])
+    return GetStashBySlugRow(id_=row[0], is_binary=row[1], slug=row[2], added=row[3], added_by_ip=str(row[4]), added_by_user_id=row[5], revoked_at=row[6], revoked_by_user_id=row[7], expires_at=row[8])
 
 
 def list_stashes(conn: ConnectionLike, *, limit: int, offset: int) -> QueryResults[ListStashesRow]:
@@ -567,11 +563,11 @@ async def get_stash_binary_path(conn: ConnectionLike, *, stash_id: int) -> str |
     return row[0]
 
 
-async def create_stash(conn: ConnectionLike, *, is_binary: bool, slug: str, added_by_ip: str, added_by_user_id: int | None) -> CreateStashRow | None:
+async def create_stash(conn: ConnectionLike, *, is_binary: bool, slug: str, added_by_ip: str, added_by_user_id: int | None) -> models.Stash | None:
     row = await (await conn.execute(CREATE_STASH, {"p1": is_binary, "p2": slug, "p3": added_by_ip, "p4": added_by_user_id})).fetchone()
     if row is None:
         return None
-    return CreateStashRow(id_=row[0], is_binary=row[1], slug=row[2], added=row[3])
+    return models.Stash(id_=row[0], is_binary=row[1], slug=row[2], added=row[3], added_by_ip=str(row[4]), added_by_user_id=row[5])
 
 
 async def create_stash_text_content(conn: ConnectionLike, *, stash_id: int, content: str) -> None:
