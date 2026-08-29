@@ -4,9 +4,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Annotated, cast
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, Request
 from psycopg import AsyncConnection
-from starlette.status import HTTP_401_UNAUTHORIZED
 
 from .db import models, query
 from .db.ops import get_db_conn

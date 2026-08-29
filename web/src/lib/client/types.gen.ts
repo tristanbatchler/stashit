@@ -63,6 +63,16 @@ export type GetStashBySlugRow = {
 };
 
 /**
+ * GoogleLoginLocation
+ */
+export type GoogleLoginLocation = {
+    /**
+     * Url
+     */
+    url: string;
+};
+
+/**
  * HTTPValidationError
  */
 export type HttpValidationError = {
@@ -452,6 +462,15 @@ export type GoogleLoginApiV1AuthGoogleGetErrors = {
 
 export type GoogleLoginApiV1AuthGoogleGetError = GoogleLoginApiV1AuthGoogleGetErrors[keyof GoogleLoginApiV1AuthGoogleGetErrors];
 
+export type GoogleLoginApiV1AuthGoogleGetResponses = {
+    /**
+     * Successful Response
+     */
+    200: GoogleLoginLocation;
+};
+
+export type GoogleLoginApiV1AuthGoogleGetResponse = GoogleLoginApiV1AuthGoogleGetResponses[keyof GoogleLoginApiV1AuthGoogleGetResponses];
+
 export type GoogleCallbackApiV1AuthGoogleCallbackGetData = {
     body?: never;
     path?: never;
@@ -503,9 +522,11 @@ export type GetMeApiV1AuthGoogleMeGetError = GetMeApiV1AuthGoogleMeGetErrors[key
 
 export type GetMeApiV1AuthGoogleMeGetResponses = {
     /**
+     * Response Get Me Api V1 Auth Google Me Get
+     *
      * Successful Response
      */
-    200: User;
+    200: User | null;
 };
 
 export type GetMeApiV1AuthGoogleMeGetResponse = GetMeApiV1AuthGoogleMeGetResponses[keyof GetMeApiV1AuthGoogleMeGetResponses];

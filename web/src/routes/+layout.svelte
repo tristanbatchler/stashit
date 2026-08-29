@@ -20,6 +20,7 @@
     <li><a href={resolve('/stashes/new')}>New stash</a></li>
     <li><a href="#">About</a></li>
     <li><a href="#">Contact</a></li>
+    <li><a href="/auth/google">Log in with Google</a></li>
   </ul>
 </nav>
 </header>

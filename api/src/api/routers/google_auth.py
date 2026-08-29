@@ -10,8 +10,6 @@ from google.auth.transport import requests
 from google.oauth2 import id_token
 from starlette.status import (
     HTTP_200_OK,
-    HTTP_204_NO_CONTENT,
-    HTTP_302_FOUND,
     HTTP_303_SEE_OTHER,
     HTTP_400_BAD_REQUEST,
     HTTP_401_UNAUTHORIZED,
@@ -21,7 +19,7 @@ from starlette.status import (
 from ..auth_service import create_google_flow
 from ..db import models, query
 from ..dependencies import CurrentUser, DBConn, IPAddr, NamedRouteURIs
-from ..response_models import Message
+from ..response_models import GoogleLoginLocation, Message
 from ..settings import settings
 
 logger = logging.getLogger(__name__)
@@ -33,14 +31,18 @@ GOOGLE_CALLBACK_ROUTE_ID = "google_callback"
 
 @router.get(
     "",
-    status_code=HTTP_302_FOUND,
-    responses={HTTP_401_UNAUTHORIZED: {"model": Message}},
+    response_model=GoogleLoginLocation,
+    status_code=HTTP_200_OK,
+    responses={
+        HTTP_401_UNAUTHORIZED: {"model": Message},
+        HTTP_200_OK: {"model": GoogleLoginLocation},
+    },
 )
 async def google_login(
     db_conn: DBConn,
     ip_addr: IPAddr,
     named_route_uris: NamedRouteURIs,
-) -> RedirectResponse:
+) -> GoogleLoginLocation:
     if ip_addr is None:
         raise HTTPException(
             status_code=HTTP_401_UNAUTHORIZED,
@@ -77,7 +79,7 @@ async def google_login(
             ip_address=ip_addr,
         )
 
-    return RedirectResponse(authorization_url, status_code=HTTP_302_FOUND)
+    return GoogleLoginLocation(url=authorization_url)
 
 
 @router.get(

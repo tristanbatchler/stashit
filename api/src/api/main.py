@@ -16,7 +16,6 @@ from starlette.status import (
 
 from .db import ops
 from .response_models import Message
-from .routers.google_auth import GOOGLE_CALLBACK_ROUTE_ID
 from .routers.google_auth import router as google_auth_router
 from .routers.stashes import router as stashes_router
 from .settings import settings
