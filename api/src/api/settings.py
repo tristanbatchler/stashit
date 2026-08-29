@@ -28,6 +28,7 @@ class Settings(BaseSettings):
     GOOGLE_CLIENT_SECRET: str = Field(default=...)
     APP_SESSION_DURATION_DAYS: int = Field(default=30, gt=0)
     APP_SESSION_COOKIE_SECURE: bool = Field(default=True)
+    ADMIN_EMAILS: set[str] = Field(default_factory=set)
 
     model_config: ClassVar[SettingsConfigDict] = SettingsConfigDict(
         env_file=app_directory / "settings.env",
@@ -60,3 +61,5 @@ if not settings_path.is_file():
     sys.exit(1)
 
 settings = Settings()
+
+settings.ADMIN_EMAILS = {email.strip().lower() for email in settings.ADMIN_EMAILS}

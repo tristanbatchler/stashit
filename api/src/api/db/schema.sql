@@ -104,10 +104,10 @@ CREATE TABLE IF NOT EXISTS stashes_password_hashes
 
 CREATE TABLE IF NOT EXISTS stashes_revocations
 (
-    stash_id     BIGINT PRIMARY KEY
-                 REFERENCES stashes (id) ON DELETE CASCADE,
-    revoked_at   TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    revoked_by_ip INET NOT NULL
+    stash_id           BIGINT PRIMARY KEY
+                       REFERENCES stashes (id) ON DELETE CASCADE,
+    revoked_at         TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    revoked_by_user_id BIGINT NOT NULL
 );
 
 CREATE INDEX IF NOT EXISTS idx_stashes_revocations_revoked_at

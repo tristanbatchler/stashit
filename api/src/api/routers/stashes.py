@@ -18,8 +18,10 @@ from psycopg.errors import UniqueViolation
 from starlette.status import (
     HTTP_200_OK,
     HTTP_201_CREATED,
+    HTTP_204_NO_CONTENT,
     HTTP_400_BAD_REQUEST,
     HTTP_401_UNAUTHORIZED,
+    HTTP_403_FORBIDDEN,
     HTTP_404_NOT_FOUND,
     HTTP_413_CONTENT_TOO_LARGE,
     HTTP_422_UNPROCESSABLE_CONTENT,
@@ -85,6 +87,66 @@ async def try_with_slug(
     raise HTTPException(
         HTTP_500_INTERNAL_SERVER_ERROR, "Could not generate a unique slug"
     )
+
+
+@router.delete(
+    "/{slug}",
+    status_code=HTTP_204_NO_CONTENT,
+    responses={
+        HTTP_403_FORBIDDEN: {"model": Message},
+        HTTP_404_NOT_FOUND: {"model": Message},
+    },
+)
+async def revoke_stash(
+    slug: str,
+    current_user: CurrentUser,
+    db_conn: DBConn,
+) -> None:
+    if not current_user or current_user.email.lower() not in settings.ADMIN_EMAILS:
+        raise HTTPException(
+            HTTP_403_FORBIDDEN,
+            "You are not allowed to do that",
+        )
+
+    file_path: str | None = None
+
+    async with db_conn.transaction():
+        stash = await query.create_stash_revocation(
+            db_conn,
+            slug=slug,
+            revoked_by_user_id=current_user.id_,
+        )
+
+        if stash is None:
+            raise HTTPException(
+                HTTP_404_NOT_FOUND,
+                "Stash does not exist by that slug, or is already revoked",
+            )
+
+        if stash.is_binary:
+            file_path = await query.delete_stash_binary_path(
+                db_conn,
+                stash_id=stash.id_,
+            )
+        else:
+            await query.delete_stash_text_content(
+                db_conn,
+                stash_id=stash.id_,
+            )
+
+    if file_path is not None:
+        path = Path(file_path)
+
+        try:
+            path.unlink(missing_ok=True)
+
+            if path.parent.exists() and not any(path.parent.iterdir()):
+                path.parent.rmdir()
+        except OSError:
+            logger.exception(
+                "Failed to delete revoked stash file: %s",
+                path,
+            )
 
 
 @router.post("/text", status_code=HTTP_201_CREATED, response_model=query.CreateStashRow)

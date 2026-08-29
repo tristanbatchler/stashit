@@ -121,7 +121,7 @@ class StashesRevocation(pydantic.BaseModel):
 
     stash_id: int
     revoked_at: datetime.datetime
-    revoked_by_ip: str
+    revoked_by_user_id: int
 
 
 class StashesTextContent(pydantic.BaseModel):

@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 __all__: collections.abc.Sequence[str] = (
+    "CreateStashRevocationRow",
     "CreateStashRow",
     "GetActiveStashLockoutRow",
     "GetOAuthStateRow",
@@ -29,6 +30,8 @@ __all__: collections.abc.Sequence[str] = (
     "create_stash_view",
     "delete_o_auth_state",
     "delete_session",
+    "delete_stash_binary_path",
+    "delete_stash_text_content",
     "get_active_stash_lockout",
     "get_o_auth_state",
     "get_stash",
@@ -124,7 +127,17 @@ class GetStashRevocationRow(pydantic.BaseModel):
     model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
 
     revoked_at: datetime.datetime
-    revoked_by_ip: str
+    revoked_by_user_id: int
+
+
+class CreateStashRevocationRow(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
+
+    id_: int
+    is_binary: bool
+    slug: str
+    added: datetime.datetime
+    added_by_ip: str
 
 
 CREATE_O_AUTH_STATE: typing.Final[typing.LiteralString] = """-- name: CreateOAuthState :exec
@@ -392,18 +405,43 @@ VALUES (%(p1)s, %(p2)s)
 GET_STASH_REVOCATION: typing.Final[typing.LiteralString] = """-- name: GetStashRevocation :one
 SELECT
     revoked_at,
-    revoked_by_ip
+    revoked_by_user_id
 FROM stashes_revocations
 WHERE stash_id = %(p1)s
 """
 
-CREATE_STASH_REVOCATION: typing.Final[typing.LiteralString] = """-- name: CreateStashRevocation :exec
-INSERT INTO stashes_revocations (
-    stash_id,
-    revoked_at,
-    revoked_by_ip
+CREATE_STASH_REVOCATION: typing.Final[typing.LiteralString] = """-- name: CreateStashRevocation :one
+WITH revoked AS (
+    INSERT INTO stashes_revocations (
+        stash_id,
+        revoked_by_user_id
+    )
+    SELECT s.id, %(p2)s
+    FROM stashes AS s
+    WHERE s.slug = %(p1)s
+    ON CONFLICT (stash_id) DO NOTHING
+    RETURNING stash_id
 )
-VALUES (%(p1)s, %(p2)s, %(p3)s)
+SELECT
+    s.id,
+    s.is_binary,
+    s.slug,
+    s.added,
+    s.added_by_ip
+FROM stashes AS s
+INNER JOIN revoked AS r
+    ON r.stash_id = s.id
+"""
+
+DELETE_STASH_TEXT_CONTENT: typing.Final[typing.LiteralString] = """-- name: DeleteStashTextContent :exec
+DELETE FROM stashes_text_content
+WHERE stash_id = %(p1)s
+"""
+
+DELETE_STASH_BINARY_PATH: typing.Final[typing.LiteralString] = """-- name: DeleteStashBinaryPath :one
+DELETE FROM stashes_binary_paths
+WHERE stash_id = %(p1)s
+RETURNING file_path
 """
 
 
@@ -630,8 +668,22 @@ async def get_stash_revocation(conn: ConnectionLike, *, stash_id: int) -> GetSta
     row = await (await conn.execute(GET_STASH_REVOCATION, {"p1": stash_id})).fetchone()
     if row is None:
         return None
-    return GetStashRevocationRow(revoked_at=row[0], revoked_by_ip=str(row[1]))
+    return GetStashRevocationRow(revoked_at=row[0], revoked_by_user_id=row[1])
 
 
-async def create_stash_revocation(conn: ConnectionLike, *, stash_id: int, revoked_at: datetime.datetime, revoked_by_ip: str) -> None:
-    await conn.execute(CREATE_STASH_REVOCATION, {"p1": stash_id, "p2": revoked_at, "p3": revoked_by_ip})
+async def create_stash_revocation(conn: ConnectionLike, *, slug: str, revoked_by_user_id: int) -> CreateStashRevocationRow | None:
+    row = await (await conn.execute(CREATE_STASH_REVOCATION, {"p1": slug, "p2": revoked_by_user_id})).fetchone()
+    if row is None:
+        return None
+    return CreateStashRevocationRow(id_=row[0], is_binary=row[1], slug=row[2], added=row[3], added_by_ip=str(row[4]))
+
+
+async def delete_stash_text_content(conn: ConnectionLike, *, stash_id: int) -> None:
+    await conn.execute(DELETE_STASH_TEXT_CONTENT, {"p1": stash_id})
+
+
+async def delete_stash_binary_path(conn: ConnectionLike, *, stash_id: int) -> str | None:
+    row = await (await conn.execute(DELETE_STASH_BINARY_PATH, {"p1": stash_id})).fetchone()
+    if row is None:
+        return None
+    return row[0]

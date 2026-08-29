@@ -258,15 +258,39 @@ VALUES ($1, $2);
 -- name: GetStashRevocation :one
 SELECT
     revoked_at,
-    revoked_by_ip
+    revoked_by_user_id
 FROM stashes_revocations
 WHERE stash_id = $1;
 
 
--- name: CreateStashRevocation :exec
-INSERT INTO stashes_revocations (
-    stash_id,
-    revoked_at,
-    revoked_by_ip
+-- name: CreateStashRevocation :one
+WITH revoked AS (
+    INSERT INTO stashes_revocations (
+        stash_id,
+        revoked_by_user_id
+    )
+    SELECT s.id, $2
+    FROM stashes AS s
+    WHERE s.slug = $1
+    ON CONFLICT (stash_id) DO NOTHING
+    RETURNING stash_id
 )
-VALUES ($1, $2, $3);
+SELECT
+    s.id,
+    s.is_binary,
+    s.slug,
+    s.added,
+    s.added_by_ip
+FROM stashes AS s
+INNER JOIN revoked AS r
+    ON r.stash_id = s.id;
+
+
+-- name: DeleteStashTextContent :exec
+DELETE FROM stashes_text_content
+WHERE stash_id = $1;
+
+-- name: DeleteStashBinaryPath :one
+DELETE FROM stashes_binary_paths
+WHERE stash_id = $1
+RETURNING file_path;
