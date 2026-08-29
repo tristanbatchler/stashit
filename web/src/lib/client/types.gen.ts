@@ -104,6 +104,10 @@ export type ListStashesRow = {
      * Revoked At
      */
     revoked_at: string | null;
+    /**
+     * Expires At
+     */
+    expires_at: string | null;
 };
 
 /**
@@ -224,6 +228,10 @@ export type ListStashesApiV1StashesGetData = {
          * Show Revoked
          */
         show_revoked?: boolean;
+        /**
+         * Show Expired
+         */
+        show_expired?: boolean;
     };
     url: '/api/v1/stashes/';
 };
@@ -395,6 +403,10 @@ export type GetFileStashApiV1StashesFileSlugGetErrors = {
      */
     404: Message;
     /**
+     * Gone
+     */
+    410: Message;
+    /**
      * Validation Error
      */
     422: HttpValidationError;
@@ -436,6 +448,10 @@ export type GetTextStashApiV1StashesTextSlugGetErrors = {
      * Not Found
      */
     404: Message;
+    /**
+     * Gone
+     */
+    410: Message;
     /**
      * Validation Error
      */

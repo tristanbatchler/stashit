@@ -102,10 +102,13 @@ SELECT
     s.slug,
     s.added,
     s.added_by_ip,
-    r.revoked_at
+    r.revoked_at,
+    e.expires_at
 FROM stashes s
 LEFT JOIN stashes_revocations r
     ON r.stash_id = s.id
+LEFT JOIN stashes_expiries e
+    on e.stash_id = s.id
 ORDER BY s.added DESC, s.id DESC
 LIMIT $1 OFFSET $2;
 

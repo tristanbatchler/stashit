@@ -21,6 +21,7 @@
 					<th scope="col">IP</th>
 					{#if data.user?.is_admin}
 						<th scope="col">Revoked</th>
+						<th scope="col">Expires</th>
 					{/if}
 				</tr>
 			</thead>
@@ -35,6 +36,7 @@
 						<td>{stash.added_by_ip}</td>
 						{#if data.user?.is_admin}
 							<td>{stash.revoked_at}</td>
+							<td>{stash.expires_at}</td>
 						{/if}
 					</tr>
 				{:else}

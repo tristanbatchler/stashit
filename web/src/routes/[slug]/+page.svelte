@@ -11,6 +11,10 @@
 	let pageUrl = $derived(page.url.href);
 	let isAdmin = $derived(data.user?.is_admin ?? false);
 	let isRevoked = $derived(data.metadata.revoked_at !== null);
+	let isExpired = $derived(
+		data.metadata.expires_at !== null &&
+			new Date(data.metadata.expires_at) <= new Date()
+	);
 
 	async function revoke() {
 		const { error } = await revokeStashApiV1StashesSlugDelete({
@@ -35,6 +39,8 @@
 	{#if isAdmin}
 		{#if isRevoked}
 			<p>This stash has been revoked.</p>
+		{:else if isExpired}
+			<p>This stash has expired.</p>
 		{:else if data.isBinary}
 			<p>
 				<a href={resolve('/[slug]/download', { slug: data.slug })}>
@@ -93,6 +99,9 @@
 
 	{:else if isRevoked}
 		<p>This stash has been revoked.</p>
+
+	{:else if isExpired}
+		<p>This stash has expired.</p>
 
 	{:else}
 		{#if data.isBinary}

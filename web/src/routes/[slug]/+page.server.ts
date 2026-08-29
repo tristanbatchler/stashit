@@ -6,9 +6,10 @@ import {
 import { error } from '@sveltejs/kit';
 import type { PageServerLoad } from './$types';
 
-export const load: PageServerLoad = async ({ params, parent }) => {
+export const load: PageServerLoad = async ({ params, parent, request }) => {
 	const { slug } = params;
 	const { user } = await parent();
+	const cookie = request.headers.get('cookie') ?? '';
 
 	const { data: metadata, error: metadataError } =
 		await getStashMetadataApiV1StashesMetadataSlugGet({
@@ -27,11 +28,12 @@ export const load: PageServerLoad = async ({ params, parent }) => {
 	const [{ data: views }, { data: uniqueViews }] = await Promise.all([
 		getStashViewsApiV1StashesViewsSlugGet({
 			path: { slug },
-			query: { unique: false }
+			query: { unique: false },
+
 		}),
 		getStashViewsApiV1StashesViewsSlugGet({
 			path: { slug },
-			query: { unique: true }
+			query: { unique: true },
 		})
 	]);
 
@@ -50,7 +52,9 @@ export const load: PageServerLoad = async ({ params, parent }) => {
 
 	const { data: content, error: contentError } =
 		await getTextStashApiV1StashesTextSlugGet({
-			path: { slug }
+			path: { slug },
+			credentials: 'include',
+			headers: { cookie }
 		});
 
 	if (contentError || content === undefined) {

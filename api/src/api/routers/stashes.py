@@ -1,6 +1,6 @@
 import logging
 from collections.abc import Awaitable, Callable, Sequence
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Annotated
 from uuid import uuid4
@@ -24,6 +24,7 @@ from starlette.status import (
     HTTP_401_UNAUTHORIZED,
     HTTP_403_FORBIDDEN,
     HTTP_404_NOT_FOUND,
+    HTTP_410_GONE,
     HTTP_413_CONTENT_TOO_LARGE,
     HTTP_422_UNPROCESSABLE_CONTENT,
     HTTP_500_INTERNAL_SERVER_ERROR,
@@ -53,13 +54,23 @@ async def list_stashes(
     db_conn: DBConn,
     current_user: CurrentUser,
     show_revoked: Annotated[bool, Query()] = False,
+    show_expired: Annotated[bool, Query()] = False,
 ) -> Sequence[query.ListStashesRow]:
     stashes = await query.list_stashes(db_conn, limit=take, offset=(page - 1) * take)
-    if show_revoked and (not current_user or not current_user.is_admin):
+    if (show_revoked or show_expired) and (
+        not current_user or not current_user.is_admin
+    ):
         raise HTTPException(
-            HTTP_403_FORBIDDEN, "You are not allowed to list revoked stashes"
+            HTTP_403_FORBIDDEN, "You are not allowed to list expired or revoked stashes"
         )
-    return [stash for stash in stashes if show_revoked or stash.revoked_at is None]
+    now = datetime.now(UTC)
+
+    return [
+        stash
+        for stash in stashes
+        if (show_revoked or stash.revoked_at is None)
+        and (show_expired or stash.expires_at is None or stash.expires_at > now)
+    ]
 
 
 MAX_SLUG_ATTEMPTS = 10
@@ -306,9 +317,12 @@ async def add_binary_stash(
         HTTP_404_NOT_FOUND: {"model": Message},
         HTTP_400_BAD_REQUEST: {"model": Message},
         HTTP_200_OK: {"content": {"application/octet-stream": {}}},
+        HTTP_410_GONE: {"model": Message},
     },
 )
-async def get_file_stash(slug: str, db_conn: DBConn, ip_addr: IPAddr) -> FileResponse:
+async def get_file_stash(
+    slug: str, db_conn: DBConn, ip_addr: IPAddr, current_user: CurrentUser
+) -> FileResponse:
     if ip_addr is None:
         raise HTTPException(
             status_code=HTTP_401_UNAUTHORIZED,
@@ -319,6 +333,16 @@ async def get_file_stash(slug: str, db_conn: DBConn, ip_addr: IPAddr) -> FileRes
     if stash is None:
         raise HTTPException(
             status_code=HTTP_404_NOT_FOUND, detail="Stash does not exist by that slug"
+        )
+
+    if (
+        stash.expires_at
+        and stash.expires_at <= datetime.now(UTC)
+        and not (current_user and current_user.is_admin)
+    ):
+        raise HTTPException(
+            status_code=HTTP_410_GONE,
+            detail="Stash has expired and is no longer available",
         )
 
     if not stash.is_binary:
@@ -356,9 +380,12 @@ async def get_file_stash(slug: str, db_conn: DBConn, ip_addr: IPAddr) -> FileRes
     responses={
         HTTP_404_NOT_FOUND: {"model": Message},
         HTTP_400_BAD_REQUEST: {"model": Message},
+        HTTP_410_GONE: {"model": Message},
     },
 )
-async def get_text_stash(slug: str, db_conn: DBConn, ip_addr: IPAddr) -> str:
+async def get_text_stash(
+    slug: str, db_conn: DBConn, ip_addr: IPAddr, current_user: CurrentUser
+) -> str:
     if ip_addr is None:
         raise HTTPException(
             status_code=HTTP_401_UNAUTHORIZED,
@@ -369,6 +396,16 @@ async def get_text_stash(slug: str, db_conn: DBConn, ip_addr: IPAddr) -> str:
     if stash is None:
         raise HTTPException(
             status_code=HTTP_404_NOT_FOUND, detail="Stash does not exist by that slug"
+        )
+
+    if (
+        stash.expires_at
+        and stash.expires_at <= datetime.now(UTC)
+        and not (current_user and current_user.is_admin)
+    ):
+        raise HTTPException(
+            status_code=HTTP_410_GONE,
+            detail="Stash has expired and is no longer available",
         )
 
     if stash.is_binary:

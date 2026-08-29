@@ -107,6 +107,7 @@ class ListStashesRow(pydantic.BaseModel):
     added: datetime.datetime
     added_by_ip: str
     revoked_at: datetime.datetime | None
+    expires_at: datetime.datetime | None
 
 
 class GetActiveStashLockoutRow(pydantic.BaseModel):
@@ -233,10 +234,13 @@ SELECT
     s.slug,
     s.added,
     s.added_by_ip,
-    r.revoked_at
+    r.revoked_at,
+    e.expires_at
 FROM stashes s
 LEFT JOIN stashes_revocations r
     ON r.stash_id = s.id
+LEFT JOIN stashes_expiries e
+    on e.stash_id = s.id
 ORDER BY s.added DESC, s.id DESC
 LIMIT %(p1)s OFFSET %(p2)s
 """
@@ -544,7 +548,7 @@ async def get_stash_by_slug(conn: ConnectionLike, *, slug: str) -> GetStashBySlu
 
 def list_stashes(conn: ConnectionLike, *, limit: int, offset: int) -> QueryResults[ListStashesRow]:
     def _decode_hook(row: psycopg.rows.TupleRow) -> ListStashesRow:
-        return ListStashesRow(id_=row[0], is_binary=row[1], slug=row[2], added=row[3], added_by_ip=str(row[4]), revoked_at=row[5])
+        return ListStashesRow(id_=row[0], is_binary=row[1], slug=row[2], added=row[3], added_by_ip=str(row[4]), revoked_at=row[5], expires_at=row[6])
 
     return QueryResults(conn, LIST_STASHES, _decode_hook, {"p1": limit, "p2": offset})
 
