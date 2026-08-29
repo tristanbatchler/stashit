@@ -238,9 +238,10 @@ CREATE_STASH: typing.Final[typing.LiteralString] = """-- name: CreateStash :one
 INSERT INTO stashes (
     is_binary,
     slug,
-    added_by_ip
+    added_by_ip,
+    added_by_user_id
 )
-VALUES (%(p1)s, %(p2)s, %(p3)s)
+VALUES (%(p1)s, %(p2)s, %(p3)s, %(p4)s)
 RETURNING
     id,
     is_binary,
@@ -511,8 +512,8 @@ async def get_stash_binary_path(conn: ConnectionLike, *, stash_id: int) -> str |
     return row[0]
 
 
-async def create_stash(conn: ConnectionLike, *, is_binary: bool, slug: str, added_by_ip: str) -> CreateStashRow | None:
-    row = await (await conn.execute(CREATE_STASH, {"p1": is_binary, "p2": slug, "p3": added_by_ip})).fetchone()
+async def create_stash(conn: ConnectionLike, *, is_binary: bool, slug: str, added_by_ip: str, added_by_user_id: int | None) -> CreateStashRow | None:
+    row = await (await conn.execute(CREATE_STASH, {"p1": is_binary, "p2": slug, "p3": added_by_ip, "p4": added_by_user_id})).fetchone()
     if row is None:
         return None
     return CreateStashRow(id_=row[0], is_binary=row[1], slug=row[2], added=row[3])

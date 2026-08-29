@@ -106,9 +106,10 @@ WHERE stash_id = $1;
 INSERT INTO stashes (
     is_binary,
     slug,
-    added_by_ip
+    added_by_ip,
+    added_by_user_id
 )
-VALUES ($1, $2, $3)
+VALUES ($1, $2, $3, $4)
 RETURNING
     id,
     is_binary,

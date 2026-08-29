@@ -42,14 +42,11 @@ NamedRouteURIs = Annotated[Callable[[str], str], Depends(get_named_route_uri)]
 async def get_current_user(
     request: Request,
     db_conn: DBConn,
-) -> models.User:
+) -> models.User | None:
     session_token = request.cookies.get("session")
 
     if session_token is None:
-        raise HTTPException(
-            status_code=HTTP_401_UNAUTHORIZED,
-            detail="Authentication required",
-        )
+        return None
 
     token_hash = hashlib.sha256(session_token.encode()).hexdigest()
 
@@ -58,13 +55,7 @@ async def get_current_user(
         token_hash=token_hash,
     )
 
-    if user is None:
-        raise HTTPException(
-            status_code=HTTP_401_UNAUTHORIZED,
-            detail="Invalid or expired session",
-        )
-
     return user
 
 
-CurrentUser = Annotated[models.User, Depends(get_current_user)]
+CurrentUser = Annotated[models.User | None, Depends(get_current_user)]

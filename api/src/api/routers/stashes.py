@@ -26,8 +26,8 @@ from starlette.status import (
     HTTP_500_INTERNAL_SERVER_ERROR,
 )
 
-from ..db import query
-from ..dependencies import DBConn, IPAddr
+from ..db import models, query
+from ..dependencies import CurrentUser, DBConn, IPAddr
 from ..response_models import Message
 from ..settings import settings
 from ..slug_service import new_slug
@@ -54,14 +54,26 @@ async def try_with_slug(
     operation: Callable[[int], Awaitable[None]],
     is_binary: bool,
     db_conn: AsyncConnection,
-    ip_addr: str,
+    ip_addr: str | None,
+    user: models.User | None,
 ) -> query.CreateStashRow:
+    if is_binary and user is None:
+        raise HTTPException(HTTP_401_UNAUTHORIZED, "You must be logged in to do that")
+    elif ip_addr is None:
+        raise HTTPException(
+            HTTP_401_UNAUTHORIZED, "Server could not determine your IP address"
+        )
+
     for _ in range(MAX_SLUG_ATTEMPTS):
         slug = new_slug()
         try:
             async with db_conn.transaction():
                 stash = await query.create_stash(
-                    db_conn, is_binary=is_binary, slug=slug, added_by_ip=ip_addr
+                    db_conn,
+                    is_binary=is_binary,
+                    slug=slug,
+                    added_by_ip=ip_addr,
+                    added_by_user_id=user.id_ if user else None,
                 )
                 if stash is None:
                     raise RuntimeError("stash insert returned no row")
@@ -77,7 +89,10 @@ async def try_with_slug(
 
 @router.post("/text", status_code=HTTP_201_CREATED, response_model=query.CreateStashRow)
 async def add_text_stash(
-    content: Annotated[str, Body()], db_conn: DBConn, ip_addr: IPAddr
+    content: Annotated[str, Body()],
+    db_conn: DBConn,
+    ip_addr: IPAddr,
+    current_user: CurrentUser,
 ) -> query.CreateStashRow:
     if ip_addr is None:
         raise HTTPException(
@@ -91,7 +106,7 @@ async def add_text_stash(
         )
 
     return await try_with_slug(
-        operation, is_binary=False, db_conn=db_conn, ip_addr=ip_addr
+        operation, is_binary=False, db_conn=db_conn, ip_addr=ip_addr, user=current_user
     )
 
 
@@ -114,12 +129,12 @@ def maybe_raise_content_too_large_exception(current_bytes: int):
     },
 )
 async def add_binary_stash(
-    file: UploadFile, db_conn: DBConn, ip_addr: IPAddr
+    file: UploadFile, db_conn: DBConn, ip_addr: IPAddr, current_user: CurrentUser
 ) -> query.CreateStashRow:
-    if ip_addr is None:
+    if current_user is None:
         raise HTTPException(
             status_code=HTTP_401_UNAUTHORIZED,
-            detail="The server could not determine your IP address",
+            detail="You must log in first (or your session is expired/invalid)",
         )
 
     try:
@@ -168,6 +183,7 @@ async def add_binary_stash(
                 operation,
                 is_binary=True,
                 db_conn=db_conn,
+                user=current_user,
                 ip_addr=ip_addr,
             )
         except Exception:

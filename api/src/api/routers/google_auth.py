@@ -10,6 +10,7 @@ from google.auth.transport import requests
 from google.oauth2 import id_token
 from starlette.status import (
     HTTP_200_OK,
+    HTTP_204_NO_CONTENT,
     HTTP_302_FOUND,
     HTTP_303_SEE_OTHER,
     HTTP_400_BAD_REQUEST,
@@ -189,6 +190,6 @@ async def google_callback(
     return redirect
 
 
-@router.get("/me", response_model=models.User, status_code=HTTP_200_OK)
-async def get_me(current_user: CurrentUser) -> models.User:
+@router.get("/me", response_model=models.User | None, status_code=HTTP_200_OK)
+async def get_me(current_user: CurrentUser) -> models.User | None:
     return current_user
