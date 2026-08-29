@@ -40,13 +40,25 @@ logger = logging.getLogger(Path(__file__).name)
 router = APIRouter(prefix="/stashes")
 
 
-@router.get("/", status_code=HTTP_200_OK, response_model=Sequence[query.ListStashesRow])
+@router.get(
+    "/",
+    status_code=HTTP_200_OK,
+    response_model=Sequence[query.ListStashesRow],
+    responses={HTTP_403_FORBIDDEN: {"model": Message}},
+)
 async def list_stashes(
     page: Annotated[int, Query(gt=0)],
     take: Annotated[int, Query(lt=settings.APP_MAX_PAGE_TAKE, gt=0)],
     db_conn: DBConn,
+    current_user: CurrentUser,
+    show_revoked: Annotated[bool, Query()] = False,
 ) -> Sequence[query.ListStashesRow]:
-    return await query.list_stashes(db_conn, limit=take, offset=(page - 1) * take)
+    stashes = await query.list_stashes(db_conn, limit=take, offset=(page - 1) * take)
+    if show_revoked and (not current_user or not current_user.is_admin):
+        raise HTTPException(
+            HTTP_403_FORBIDDEN, "You are not allowed to list revoked stashes"
+        )
+    return [stash for stash in stashes if show_revoked or stash.revoked_at is None]
 
 
 MAX_SLUG_ATTEMPTS = 10
@@ -102,7 +114,7 @@ async def revoke_stash(
     current_user: CurrentUser,
     db_conn: DBConn,
 ) -> None:
-    if not current_user or current_user.email.lower() not in settings.ADMIN_EMAILS:
+    if not current_user or not current_user.is_admin:
         raise HTTPException(
             HTTP_403_FORBIDDEN,
             "You are not allowed to do that",

@@ -5,7 +5,8 @@ CREATE TABLE IF NOT EXISTS users
     email       TEXT NOT NULL,
     name        TEXT NOT NULL, 
     created     TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    last_login  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
+    last_login  TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    is_admin    BOOLEAN NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS sessions
@@ -102,12 +103,12 @@ CREATE TABLE IF NOT EXISTS stashes_password_hashes
 );
 
 
-CREATE TABLE IF NOT EXISTS stashes_revocations
-(
+CREATE TABLE IF NOT EXISTS stashes_revocations (
     stash_id           BIGINT PRIMARY KEY
-                       REFERENCES stashes (id) ON DELETE CASCADE,
+                       REFERENCES stashes(id) ON DELETE RESTRICT,
     revoked_at         TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
     revoked_by_user_id BIGINT NOT NULL
+                       REFERENCES users(id) ON DELETE RESTRICT
 );
 
 CREATE INDEX IF NOT EXISTS idx_stashes_revocations_revoked_at

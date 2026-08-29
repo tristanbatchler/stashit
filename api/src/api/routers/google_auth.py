@@ -171,7 +171,10 @@ async def google_callback(
             state=state,
         )
 
-        user = await query.upsert_user(db_conn, google_sub=sub, email=email, name=name)
+        is_admin = email in settings.ADMIN_EMAILS
+        user = await query.upsert_user(
+            db_conn, google_sub=sub, email=email, name=name, is_admin=is_admin
+        )
 
         if user is None:
             raise HTTPException(HTTP_500_INTERNAL_SERVER_ERROR, "Error upserting user")

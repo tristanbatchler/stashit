@@ -3,8 +3,23 @@
 	import { resolve } from '$app/paths';
 	import QRCode from '@castlenine/svelte-qrcode';
 
+	import {revokeStashApiV1StashesSlugDelete} from '$lib/client'
+	import { refreshAll } from '$app/navigation';
+
 	let { data } = $props();
 	let pageUrl = $derived(page.url.href);
+
+	async function revoke() {
+		const { error } = await revokeStashApiV1StashesSlugDelete(
+			{path: {slug: data.slug}, credentials: 'include'}
+		);
+
+		if (error) {
+			alert(`Error revoking stash: ${error.detail}`)
+		}
+
+		refreshAll();
+	}
 </script>
 
 <section>
@@ -24,6 +39,14 @@
 		<h6>Share</h6>
 		<QRCode data={pageUrl} />
 	</section>
+
+	{#if data.user?.is_admin}
+		<section>
+			<button type="button" onclick={revoke}>
+				Revoke
+			</button>
+		</section>
+	{/if}
 
 	<footer>
 		{#if data.isBinary}

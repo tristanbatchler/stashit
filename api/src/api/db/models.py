@@ -140,3 +140,4 @@ class User(pydantic.BaseModel):
     name: str
     created: datetime.datetime
     last_login: datetime.datetime
+    is_admin: bool

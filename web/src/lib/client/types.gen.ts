@@ -37,6 +37,40 @@ export type CreateStashRow = {
 };
 
 /**
+ * CurrentUser
+ */
+export type CurrentUser = {
+    /**
+     * Id
+     */
+    id_: number;
+    /**
+     * Google Sub
+     */
+    google_sub: string;
+    /**
+     * Email
+     */
+    email: string;
+    /**
+     * Name
+     */
+    name: string;
+    /**
+     * Created
+     */
+    created: string;
+    /**
+     * Last Login
+     */
+    last_login: string;
+    /**
+     * Is Admin
+     */
+    is_admin: boolean;
+};
+
+/**
  * GetStashBySlugRow
  */
 export type GetStashBySlugRow = {
@@ -60,6 +94,18 @@ export type GetStashBySlugRow = {
      * Added By Ip
      */
     added_by_ip: string;
+    /**
+     * Added By User Id
+     */
+    added_by_user_id: number | null;
+    /**
+     * Revoked At
+     */
+    revoked_at: string | null;
+    /**
+     * Revoked By User Id
+     */
+    revoked_by_user_id: number | null;
 };
 
 /**
@@ -106,6 +152,10 @@ export type ListStashesRow = {
      * Added By Ip
      */
     added_by_ip: string;
+    /**
+     * Revoked At
+     */
+    revoked_at: string | null;
 };
 
 /**
@@ -116,36 +166,6 @@ export type Message = {
      * Detail
      */
     detail: string;
-};
-
-/**
- * User
- */
-export type User = {
-    /**
-     * Id
-     */
-    id_: number;
-    /**
-     * Google Sub
-     */
-    google_sub: string;
-    /**
-     * Email
-     */
-    email: string;
-    /**
-     * Name
-     */
-    name: string;
-    /**
-     * Created
-     */
-    created: string;
-    /**
-     * Last Login
-     */
-    last_login: string;
 };
 
 /**
@@ -188,11 +208,19 @@ export type ListStashesApiV1StashesGetData = {
          * Take
          */
         take: number;
+        /**
+         * Show Revoked
+         */
+        show_revoked?: boolean;
     };
     url: '/api/v1/stashes/';
 };
 
 export type ListStashesApiV1StashesGetErrors = {
+    /**
+     * Forbidden
+     */
+    403: Message;
     /**
      * Validation Error
      */
@@ -215,6 +243,48 @@ export type ListStashesApiV1StashesGetResponses = {
 };
 
 export type ListStashesApiV1StashesGetResponse = ListStashesApiV1StashesGetResponses[keyof ListStashesApiV1StashesGetResponses];
+
+export type RevokeStashApiV1StashesSlugDeleteData = {
+    body?: never;
+    path: {
+        /**
+         * Slug
+         */
+        slug: string;
+    };
+    query?: never;
+    url: '/api/v1/stashes/{slug}';
+};
+
+export type RevokeStashApiV1StashesSlugDeleteErrors = {
+    /**
+     * Forbidden
+     */
+    403: Message;
+    /**
+     * Not Found
+     */
+    404: Message;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+    /**
+     * Internal Server Error
+     */
+    500: Message;
+};
+
+export type RevokeStashApiV1StashesSlugDeleteError = RevokeStashApiV1StashesSlugDeleteErrors[keyof RevokeStashApiV1StashesSlugDeleteErrors];
+
+export type RevokeStashApiV1StashesSlugDeleteResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type RevokeStashApiV1StashesSlugDeleteResponse = RevokeStashApiV1StashesSlugDeleteResponses[keyof RevokeStashApiV1StashesSlugDeleteResponses];
 
 export type AddTextStashApiV1StashesTextPostData = {
     /**
@@ -530,7 +600,7 @@ export type GetMeApiV1AuthGoogleMeGetResponses = {
      *
      * Successful Response
      */
-    200: User | null;
+    200: CurrentUser | null;
 };
 
 export type GetMeApiV1AuthGoogleMeGetResponse = GetMeApiV1AuthGoogleMeGetResponses[keyof GetMeApiV1AuthGoogleMeGetResponses];

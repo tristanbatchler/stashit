@@ -27,13 +27,15 @@ RETURNING *;
 INSERT INTO users (
     google_sub,
     email, 
-    name
+    name,
+    is_admin
 )
-VALUES ($1, $2, $3)
+VALUES ($1, $2, $3, $4)
 ON CONFLICT (google_sub)
 DO UPDATE SET
     email = EXCLUDED.email,
-    last_login = CURRENT_TIMESTAMP
+    last_login = CURRENT_TIMESTAMP,
+    is_admin = EXCLUDED.is_admin
 RETURNING *;
 
 -- name: GetUserBySessionTokenHash :one
@@ -43,7 +45,8 @@ SELECT
     u.email,
     u.name, 
     u.created,
-    u.last_login
+    u.last_login,
+    u.is_admin
 FROM users u
 INNER JOIN sessions s ON u.id = s.user_id
 WHERE s.token_hash = $1 
@@ -75,24 +78,32 @@ WHERE id = $1;
 
 -- name: GetStashBySlug :one
 SELECT
-    id,
-    is_binary,
-    slug,
-    added,
-    added_by_ip
-FROM stashes
-WHERE slug = $1;
+    s.id,
+    s.is_binary,
+    s.slug,
+    s.added,
+    s.added_by_ip,
+    s.added_by_user_id,
+    r.revoked_at,
+    r.revoked_by_user_id
+FROM stashes s
+LEFT JOIN stashes_revocations r
+    ON r.stash_id = s.id
+WHERE s.slug = $1;
 
 
 -- name: ListStashes :many
 SELECT
-    id,
-    is_binary,
-    slug,
-    added,
-    added_by_ip
-FROM stashes
-ORDER BY added DESC, id DESC
+    s.id,
+    s.is_binary,
+    s.slug,
+    s.added,
+    s.added_by_ip,
+    r.revoked_at
+FROM stashes s
+LEFT JOIN stashes_revocations r
+    ON r.stash_id = s.id
+ORDER BY s.added DESC, s.id DESC
 LIMIT $1 OFFSET $2;
 
 
@@ -280,9 +291,10 @@ SELECT
     s.is_binary,
     s.slug,
     s.added,
-    s.added_by_ip
+    s.added_by_ip,
+    s.added_by_user_id
 FROM stashes AS s
-INNER JOIN revoked AS r
+JOIN revoked AS r
     ON r.stash_id = s.id;
 
 

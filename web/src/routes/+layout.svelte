@@ -6,13 +6,13 @@
 
 	let { children, data } = $props();
 
-  async function logout() {
-		await fetch(resolve('/auth/google/logout'), {
-			method: 'POST'
-		});
+	async function logout() {
+			await fetch(resolve('/auth/google/logout'), {
+				method: 'POST'
+			});
 
-		location.href = resolve('/');
-	}
+			location.href = resolve('/');
+		}
 </script>
 
 <svelte:head>

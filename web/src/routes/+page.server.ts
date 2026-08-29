@@ -4,14 +4,18 @@ import type { PageServerLoad } from './$types';
 
 const PAGE_SIZE = 10;
 
-export const load: PageServerLoad = async ({ url }) => {
+export const load: PageServerLoad = async ({ url, parent, request }) => {
 	const requestedPage = Number(url.searchParams.get('page') ?? '1');
 	const page = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
+
+	const { user } = await parent();
+
+	const cookie = request.headers.get('cookie') ?? '';
 
 	// Fetch one extra item so we can tell whether a next page exists without
 	// the API having to expose a total count.
 	const stashesPromise = listStashesApiV1StashesGet({
-		query: { page, take: PAGE_SIZE + 1 }
+		query: { page, take: PAGE_SIZE + 1, show_revoked: user?.is_admin }, credentials: 'include', headers: { cookie }
 	}).then((response) => {
 		const stashes = response.data ?? [];
 
@@ -21,6 +25,7 @@ export const load: PageServerLoad = async ({ url }) => {
 			hasNext: stashes.length > PAGE_SIZE
 		};
 	});
+
 
 	// Intercept out-of-bounds page requests instantly on the server side
 	if (page > 1) {

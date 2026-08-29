@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 __all__: collections.abc.Sequence[str] = (
-    "CreateStashRevocationRow",
     "CreateStashRow",
     "GetActiveStashLockoutRow",
     "GetOAuthStateRow",
@@ -94,6 +93,9 @@ class GetStashBySlugRow(pydantic.BaseModel):
     slug: str
     added: datetime.datetime
     added_by_ip: str
+    added_by_user_id: int | None
+    revoked_at: datetime.datetime | None
+    revoked_by_user_id: int | None
 
 
 class ListStashesRow(pydantic.BaseModel):
@@ -104,6 +106,7 @@ class ListStashesRow(pydantic.BaseModel):
     slug: str
     added: datetime.datetime
     added_by_ip: str
+    revoked_at: datetime.datetime | None
 
 
 class CreateStashRow(pydantic.BaseModel):
@@ -128,16 +131,6 @@ class GetStashRevocationRow(pydantic.BaseModel):
 
     revoked_at: datetime.datetime
     revoked_by_user_id: int
-
-
-class CreateStashRevocationRow(pydantic.BaseModel):
-    model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
-
-    id_: int
-    is_binary: bool
-    slug: str
-    added: datetime.datetime
-    added_by_ip: str
 
 
 CREATE_O_AUTH_STATE: typing.Final[typing.LiteralString] = """-- name: CreateOAuthState :exec
@@ -171,14 +164,16 @@ UPSERT_USER: typing.Final[typing.LiteralString] = """-- name: UpsertUser :one
 INSERT INTO users (
     google_sub,
     email, 
-    name
+    name,
+    is_admin
 )
-VALUES (%(p1)s, %(p2)s, %(p3)s)
+VALUES (%(p1)s, %(p2)s, %(p3)s, %(p4)s)
 ON CONFLICT (google_sub)
 DO UPDATE SET
     email = EXCLUDED.email,
-    last_login = CURRENT_TIMESTAMP
-RETURNING id, google_sub, email, name, created, last_login
+    last_login = CURRENT_TIMESTAMP,
+    is_admin = EXCLUDED.is_admin
+RETURNING id, google_sub, email, name, created, last_login, is_admin
 """
 
 GET_USER_BY_SESSION_TOKEN_HASH: typing.Final[typing.LiteralString] = """-- name: GetUserBySessionTokenHash :one
@@ -188,7 +183,8 @@ SELECT
     u.email,
     u.name, 
     u.created,
-    u.last_login
+    u.last_login,
+    u.is_admin
 FROM users u
 INNER JOIN sessions s ON u.id = s.user_id
 WHERE s.token_hash = %(p1)s 
@@ -222,24 +218,32 @@ WHERE id = %(p1)s
 
 GET_STASH_BY_SLUG: typing.Final[typing.LiteralString] = """-- name: GetStashBySlug :one
 SELECT
-    id,
-    is_binary,
-    slug,
-    added,
-    added_by_ip
-FROM stashes
-WHERE slug = %(p1)s
+    s.id,
+    s.is_binary,
+    s.slug,
+    s.added,
+    s.added_by_ip,
+    s.added_by_user_id,
+    r.revoked_at,
+    r.revoked_by_user_id
+FROM stashes s
+LEFT JOIN stashes_revocations r
+    ON r.stash_id = s.id
+WHERE s.slug = %(p1)s
 """
 
 LIST_STASHES: typing.Final[typing.LiteralString] = """-- name: ListStashes :many
 SELECT
-    id,
-    is_binary,
-    slug,
-    added,
-    added_by_ip
-FROM stashes
-ORDER BY added DESC, id DESC
+    s.id,
+    s.is_binary,
+    s.slug,
+    s.added,
+    s.added_by_ip,
+    r.revoked_at
+FROM stashes s
+LEFT JOIN stashes_revocations r
+    ON r.stash_id = s.id
+ORDER BY s.added DESC, s.id DESC
 LIMIT %(p1)s OFFSET %(p2)s
 """
 
@@ -427,9 +431,10 @@ SELECT
     s.is_binary,
     s.slug,
     s.added,
-    s.added_by_ip
+    s.added_by_ip,
+    s.added_by_user_id
 FROM stashes AS s
-INNER JOIN revoked AS r
+JOIN revoked AS r
     ON r.stash_id = s.id
 """
 
@@ -505,18 +510,18 @@ async def delete_o_auth_state(conn: ConnectionLike, *, state: str) -> models.Oau
     return models.OauthState(state=row[0], code_verifier=row[1], created=row[2], expires=row[3], ip_address=str(row[4]))
 
 
-async def upsert_user(conn: ConnectionLike, *, google_sub: str, email: str, name: str) -> models.User | None:
-    row = await (await conn.execute(UPSERT_USER, {"p1": google_sub, "p2": email, "p3": name})).fetchone()
+async def upsert_user(conn: ConnectionLike, *, google_sub: str, email: str, name: str, is_admin: bool) -> models.User | None:
+    row = await (await conn.execute(UPSERT_USER, {"p1": google_sub, "p2": email, "p3": name, "p4": is_admin})).fetchone()
     if row is None:
         return None
-    return models.User(id_=row[0], google_sub=row[1], email=row[2], name=row[3], created=row[4], last_login=row[5])
+    return models.User(id_=row[0], google_sub=row[1], email=row[2], name=row[3], created=row[4], last_login=row[5], is_admin=row[6])
 
 
 async def get_user_by_session_token_hash(conn: ConnectionLike, *, token_hash: str) -> models.User | None:
     row = await (await conn.execute(GET_USER_BY_SESSION_TOKEN_HASH, {"p1": token_hash})).fetchone()
     if row is None:
         return None
-    return models.User(id_=row[0], google_sub=row[1], email=row[2], name=row[3], created=row[4], last_login=row[5])
+    return models.User(id_=row[0], google_sub=row[1], email=row[2], name=row[3], created=row[4], last_login=row[5], is_admin=row[6])
 
 
 async def create_session(conn: ConnectionLike, *, user_id: int, token_hash: str, expires: datetime.datetime) -> None:
@@ -538,12 +543,12 @@ async def get_stash_by_slug(conn: ConnectionLike, *, slug: str) -> GetStashBySlu
     row = await (await conn.execute(GET_STASH_BY_SLUG, {"p1": slug})).fetchone()
     if row is None:
         return None
-    return GetStashBySlugRow(id_=row[0], is_binary=row[1], slug=row[2], added=row[3], added_by_ip=str(row[4]))
+    return GetStashBySlugRow(id_=row[0], is_binary=row[1], slug=row[2], added=row[3], added_by_ip=str(row[4]), added_by_user_id=row[5], revoked_at=row[6], revoked_by_user_id=row[7])
 
 
 def list_stashes(conn: ConnectionLike, *, limit: int, offset: int) -> QueryResults[ListStashesRow]:
     def _decode_hook(row: psycopg.rows.TupleRow) -> ListStashesRow:
-        return ListStashesRow(id_=row[0], is_binary=row[1], slug=row[2], added=row[3], added_by_ip=str(row[4]))
+        return ListStashesRow(id_=row[0], is_binary=row[1], slug=row[2], added=row[3], added_by_ip=str(row[4]), revoked_at=row[5])
 
     return QueryResults(conn, LIST_STASHES, _decode_hook, {"p1": limit, "p2": offset})
 
@@ -671,11 +676,11 @@ async def get_stash_revocation(conn: ConnectionLike, *, stash_id: int) -> GetSta
     return GetStashRevocationRow(revoked_at=row[0], revoked_by_user_id=row[1])
 
 
-async def create_stash_revocation(conn: ConnectionLike, *, slug: str, revoked_by_user_id: int) -> CreateStashRevocationRow | None:
+async def create_stash_revocation(conn: ConnectionLike, *, slug: str, revoked_by_user_id: int) -> models.Stash | None:
     row = await (await conn.execute(CREATE_STASH_REVOCATION, {"p1": slug, "p2": revoked_by_user_id})).fetchone()
     if row is None:
         return None
-    return CreateStashRevocationRow(id_=row[0], is_binary=row[1], slug=row[2], added=row[3], added_by_ip=str(row[4]))
+    return models.Stash(id_=row[0], is_binary=row[1], slug=row[2], added=row[3], added_by_ip=str(row[4]), added_by_user_id=row[5])
 
 
 async def delete_stash_text_content(conn: ConnectionLike, *, stash_id: int) -> None:

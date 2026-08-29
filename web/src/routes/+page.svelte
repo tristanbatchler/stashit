@@ -19,6 +19,9 @@
 					<th scope="col">Type</th>
 					<th scope="col">Added</th>
 					<th scope="col">IP</th>
+					{#if data.user?.is_admin}
+						<th scope="col">Revoked</th>
+					{/if}
 				</tr>
 			</thead>
 			<tbody>
@@ -30,6 +33,9 @@
 						<td>{stash.is_binary ? 'File' : 'Text'}</td>
 						<td>{stash.added}</td>
 						<td>{stash.added_by_ip}</td>
+						{#if data.user?.is_admin}
+							<td>{stash.revoked_at}</td>
+						{/if}
 					</tr>
 				{:else}
 					<tr>
