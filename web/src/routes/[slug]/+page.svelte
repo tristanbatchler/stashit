@@ -4,7 +4,7 @@
 	import QRCode from '@castlenine/svelte-qrcode';
 
 	let { data } = $props();
-	let pageUrl = $derived(page.url.href)
+	let pageUrl = $derived(page.url.href);
 </script>
 
 <section>
