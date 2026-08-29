@@ -33,7 +33,7 @@
 					</tr>
 				{:else}
 					<tr>
-						<td colspan="3">No stashes yet.</td>
+						<td colspan="4">No stashes yet.</td>
 					</tr>
 				{/each}
 			</tbody>
