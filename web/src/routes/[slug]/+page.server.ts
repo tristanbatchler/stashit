@@ -94,9 +94,7 @@ export const actions: Actions = {
 				path: {
 					slug: params.slug
 				},
-				query: {
-					password
-				},
+				body: password,
 				credentials: 'include',
 				headers: {
 					cookie

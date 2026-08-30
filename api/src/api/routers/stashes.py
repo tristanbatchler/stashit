@@ -391,7 +391,7 @@ async def raise_if_password_checks_fail(
 )
 async def unlock_protected_file_stash(
     slug: str,
-    password: SecretStr,
+    password: Annotated[SecretStr, Body()],
     db_conn: DBConn,
     ip_addr: IPAddr,
     current_user: CurrentUser,
@@ -424,7 +424,7 @@ async def unlock_protected_file_stash(
 )
 async def unlock_protected_text_stash(
     slug: str,
-    password: SecretStr,
+    password: Annotated[SecretStr, Body()],
     db_conn: DBConn,
     ip_addr: IPAddr,
     current_user: CurrentUser,

@@ -56,12 +56,26 @@ export const addBinaryStashApiV1StashesFilePost = <ThrowOnError extends boolean 
 /**
  * Unlock Protected File Stash
  */
-export const unlockProtectedFileStashApiV1StashesFileSlugUnlockPost = <ThrowOnError extends boolean = false>(options: Options<UnlockProtectedFileStashApiV1StashesFileSlugUnlockPostData, ThrowOnError>): RequestResult<UnlockProtectedFileStashApiV1StashesFileSlugUnlockPostResponses, UnlockProtectedFileStashApiV1StashesFileSlugUnlockPostErrors, ThrowOnError> => (options.client ?? client).post<UnlockProtectedFileStashApiV1StashesFileSlugUnlockPostResponses, UnlockProtectedFileStashApiV1StashesFileSlugUnlockPostErrors, ThrowOnError>({ url: '/api/v1/stashes/file/{slug}/unlock', ...options });
+export const unlockProtectedFileStashApiV1StashesFileSlugUnlockPost = <ThrowOnError extends boolean = false>(options: Options<UnlockProtectedFileStashApiV1StashesFileSlugUnlockPostData, ThrowOnError>): RequestResult<UnlockProtectedFileStashApiV1StashesFileSlugUnlockPostResponses, UnlockProtectedFileStashApiV1StashesFileSlugUnlockPostErrors, ThrowOnError> => (options.client ?? client).post<UnlockProtectedFileStashApiV1StashesFileSlugUnlockPostResponses, UnlockProtectedFileStashApiV1StashesFileSlugUnlockPostErrors, ThrowOnError>({
+    url: '/api/v1/stashes/file/{slug}/unlock',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Unlock Protected Text Stash
  */
-export const unlockProtectedTextStashApiV1StashesTextSlugUnlockPost = <ThrowOnError extends boolean = false>(options: Options<UnlockProtectedTextStashApiV1StashesTextSlugUnlockPostData, ThrowOnError>): RequestResult<UnlockProtectedTextStashApiV1StashesTextSlugUnlockPostResponses, UnlockProtectedTextStashApiV1StashesTextSlugUnlockPostErrors, ThrowOnError> => (options.client ?? client).post<UnlockProtectedTextStashApiV1StashesTextSlugUnlockPostResponses, UnlockProtectedTextStashApiV1StashesTextSlugUnlockPostErrors, ThrowOnError>({ url: '/api/v1/stashes/text/{slug}/unlock', ...options });
+export const unlockProtectedTextStashApiV1StashesTextSlugUnlockPost = <ThrowOnError extends boolean = false>(options: Options<UnlockProtectedTextStashApiV1StashesTextSlugUnlockPostData, ThrowOnError>): RequestResult<UnlockProtectedTextStashApiV1StashesTextSlugUnlockPostResponses, UnlockProtectedTextStashApiV1StashesTextSlugUnlockPostErrors, ThrowOnError> => (options.client ?? client).post<UnlockProtectedTextStashApiV1StashesTextSlugUnlockPostResponses, UnlockProtectedTextStashApiV1StashesTextSlugUnlockPostErrors, ThrowOnError>({
+    url: '/api/v1/stashes/text/{slug}/unlock',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Get File Stash

@@ -441,19 +441,17 @@ export type AddBinaryStashApiV1StashesFilePostResponses = {
 export type AddBinaryStashApiV1StashesFilePostResponse = AddBinaryStashApiV1StashesFilePostResponses[keyof AddBinaryStashApiV1StashesFilePostResponses];
 
 export type UnlockProtectedFileStashApiV1StashesFileSlugUnlockPostData = {
-    body?: never;
+    /**
+     * Password
+     */
+    body: string;
     path: {
         /**
          * Slug
          */
         slug: string;
     };
-    query: {
-        /**
-         * Password
-         */
-        password: string;
-    };
+    query?: never;
     url: '/api/v1/stashes/file/{slug}/unlock';
 };
 
@@ -500,19 +498,17 @@ export type UnlockProtectedFileStashApiV1StashesFileSlugUnlockPostResponses = {
 export type UnlockProtectedFileStashApiV1StashesFileSlugUnlockPostResponse = UnlockProtectedFileStashApiV1StashesFileSlugUnlockPostResponses[keyof UnlockProtectedFileStashApiV1StashesFileSlugUnlockPostResponses];
 
 export type UnlockProtectedTextStashApiV1StashesTextSlugUnlockPostData = {
-    body?: never;
+    /**
+     * Password
+     */
+    body: string;
     path: {
         /**
          * Slug
          */
         slug: string;
     };
-    query: {
-        /**
-         * Password
-         */
-        password: string;
-    };
+    query?: never;
     url: '/api/v1/stashes/text/{slug}/unlock';
 };
 

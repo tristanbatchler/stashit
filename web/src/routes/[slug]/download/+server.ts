@@ -58,7 +58,7 @@ export const POST: RequestHandler = async ({ params, request }) => {
 	const { data, error: unlockError, response } =
 		await unlockProtectedFileStashApiV1StashesFileSlugUnlockPost({
 			path: { slug: params.slug },
-			query: { password },
+			body: password,
 			credentials: 'include',
 			headers: { cookie },
 			parseAs: 'stream'
