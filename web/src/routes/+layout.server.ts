@@ -9,7 +9,7 @@ export const load: LayoutServerLoad = async ({ request }) => {
 	});
 
 	if (error) {
-		throw new Error(error.detail);
+		console.log("Could not get response from getMeApiV1AuthGoogleMeGet - user will remain null");
 	}
 
 	return {

@@ -12,7 +12,7 @@ export const load: PageServerLoad = async ({ url, parent, request }) => {
 	const take = page === 1 ? PAGE_SIZE + 1 : PAGE_SIZE;
 
 	const stashesPromise = listStashesApiV1StashesGet({
-		query: { page, take, show_revoked: user?.is_admin }, 
+		query: { page, take, show_revoked: user?.is_admin, show_expired: user?.is_admin }, 
 		credentials: 'include', 
 		headers: { cookie }
 	}).then((response) => {
