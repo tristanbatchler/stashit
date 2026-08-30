@@ -481,6 +481,10 @@ export type UnlockProtectedFileStashApiV1StashesFileSlugUnlockPostErrors = {
      */
     422: HttpValidationError;
     /**
+     * Too Many Requests
+     */
+    429: Message;
+    /**
      * Internal Server Error
      */
     500: Message;
@@ -537,6 +541,10 @@ export type UnlockProtectedTextStashApiV1StashesTextSlugUnlockPostErrors = {
      * Validation Error
      */
     422: HttpValidationError;
+    /**
+     * Too Many Requests
+     */
+    429: Message;
     /**
      * Internal Server Error
      */

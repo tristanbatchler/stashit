@@ -24,6 +24,10 @@ db_conn_pool = AsyncConnectionPool(
 
 async def get_db_conn() -> AsyncGenerator[AsyncConnection]:
     async with db_conn_pool.connection() as conn:
+        # Autocommit queries to run outside the usual `async with db_conn.transaction(): ...` block. This can be useful if
+        # you are planning on throwing an exception later and don't want your query to roll back, e.g. in stashes password
+        # attempt logging.
+        await conn.set_autocommit(True)
         yield conn
 
 

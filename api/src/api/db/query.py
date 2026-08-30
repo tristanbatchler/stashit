@@ -32,6 +32,7 @@ __all__: collections.abc.Sequence[str] = (
     "delete_stash_text_content",
     "get_active_stash_lockout",
     "get_o_auth_state",
+    "get_recent_failed_stash_password_attempts",
     "get_stash",
     "get_stash_binary_path",
     "get_stash_by_slug",
@@ -482,6 +483,15 @@ WHERE stash_id = %(p1)s
 RETURNING file_path
 """
 
+GET_RECENT_FAILED_STASH_PASSWORD_ATTEMPTS: typing.Final[typing.LiteralString] = """-- name: GetRecentFailedStashPasswordAttempts :one
+SELECT COUNT(*)
+FROM stash_password_attempts
+WHERE stash_id = %(p1)s
+  AND ip_address = %(p2)s
+  AND successful = FALSE
+  AND attempted_at > %(p3)s
+"""
+
 
 class QueryResults[T]:
     __slots__ = ("_conn", "_cursor", "_decode_hook", "_iterator", "_params", "_sql")
@@ -722,6 +732,13 @@ async def delete_stash_text_content(conn: ConnectionLike, *, stash_id: int) -> N
 
 async def delete_stash_binary_path(conn: ConnectionLike, *, stash_id: int) -> str | None:
     row = await (await conn.execute(DELETE_STASH_BINARY_PATH, {"p1": stash_id})).fetchone()
+    if row is None:
+        return None
+    return row[0]
+
+
+async def get_recent_failed_stash_password_attempts(conn: ConnectionLike, *, stash_id: int, ip_address: str, attempted_since: datetime.datetime) -> int | None:
+    row = await (await conn.execute(GET_RECENT_FAILED_STASH_PASSWORD_ATTEMPTS, {"p1": stash_id, "p2": ip_address, "p3": attempted_since})).fetchone()
     if row is None:
         return None
     return row[0]

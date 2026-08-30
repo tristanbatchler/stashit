@@ -39,10 +39,21 @@
 			: '?/unlock'
 	);
 
-	// 💡 State to track the button text feedback dynamically
 	let copyStatus = $state("Copy");
 
-	// 💡 Copy logic function utilizing native browser utilities
+	function highlight(node: HTMLElement, content: string) {
+		function update(text: string) {
+			node.textContent = text;
+			hljs.highlightElement(node);
+		}
+
+		update(content);
+
+		return {
+			update
+		};
+	}
+
 	async function copyToClipboard() {
 		try {
 			await navigator.clipboard.writeText(activeContent);
@@ -123,7 +134,7 @@
 					>
 						{copyStatus}
 					</button>
-					<pre id="stash-text-content">{@html hljs.highlightAuto(activeContent).value}</pre>
+					<pre id="stash-text-content" use:highlight={activeContent}></pre>
 				</div>
 			{/if}
 		{/if}

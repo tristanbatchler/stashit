@@ -339,3 +339,11 @@ WHERE stash_id = $1;
 DELETE FROM stashes_binary_paths
 WHERE stash_id = $1
 RETURNING file_path;
+
+-- name: GetRecentFailedStashPasswordAttempts :one
+SELECT COUNT(*)
+FROM stash_password_attempts
+WHERE stash_id = @stash_id
+  AND ip_address = @ip_address
+  AND successful = FALSE
+  AND attempted_at > @attempted_since;

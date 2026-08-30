@@ -1,6 +1,6 @@
 import logging
 from collections.abc import Awaitable, Callable, Sequence
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Annotated
 from uuid import uuid4
@@ -30,6 +30,7 @@ from starlette.status import (
     HTTP_410_GONE,
     HTTP_413_CONTENT_TOO_LARGE,
     HTTP_422_UNPROCESSABLE_CONTENT,
+    HTTP_429_TOO_MANY_REQUESTS,
     HTTP_500_INTERNAL_SERVER_ERROR,
 )
 
@@ -342,37 +343,82 @@ async def raise_if_password_checks_fail(
     ip_addr: str,
     current_user: CurrentUser,
 ):
-    if not (current_user and current_user.is_admin):
-        if password is None:
-            raise HTTPException(HTTP_403_FORBIDDEN, "This stash is password protected")
-        else:
-            stored_hash = await query.get_stash_password_hash(
-                db_conn, stash_id=stash_id
+    if current_user and current_user.is_admin:
+        return
+
+    if password is None:
+        raise HTTPException(
+            HTTP_403_FORBIDDEN,
+            "This stash is password protected",
+        )
+
+    lockout = await query.get_active_stash_lockout(
+        db_conn,
+        stash_id=stash_id,
+        ip_address=ip_addr,
+    )
+
+    if lockout is not None:
+        raise HTTPException(
+            HTTP_429_TOO_MANY_REQUESTS,
+            "Too many incorrect password attempts. Try again later.",
+        )
+
+    stored_hash = await query.get_stash_password_hash(
+        db_conn,
+        stash_id=stash_id,
+    )
+
+    if stored_hash is None:
+        raise HTTPException(
+            HTTP_500_INTERNAL_SERVER_ERROR,
+            "Could not obtain stored hash for protected stash",
+        )
+
+    successful = False
+
+    try:
+        successful = password_hasher.verify(
+            stored_hash,
+            password.get_secret_value(),
+        )
+    except VerifyMismatchError:
+        pass
+
+    now = datetime.now(UTC)
+
+    await query.create_stash_password_attempt(
+        db_conn,
+        stash_id=stash_id,
+        ip_address=ip_addr,
+        successful=successful,
+    )
+
+    if not successful:
+        lockout_minutes = settings.PASSWORD_LOCKOUT_EXPIRY_MINUTES
+        failed_attempts = await query.get_recent_failed_stash_password_attempts(
+            db_conn,
+            stash_id=stash_id,
+            ip_address=ip_addr,
+            attempted_since=now - timedelta(minutes=lockout_minutes),
+        )
+
+        if (
+            failed_attempts
+            and failed_attempts >= settings.PASSWORD_LOCKOUT_ATTEMPTS_THRESHOLD
+        ):
+            await query.create_stash_lockout(
+                db_conn,
+                stash_id=stash_id,
+                ip_address=ip_addr,
+                expires=now + timedelta(minutes=lockout_minutes),
             )
-            if stored_hash is None:
-                raise HTTPException(
-                    HTTP_500_INTERNAL_SERVER_ERROR,
-                    "Could not obtain stored hash for protected stash",
-                )
 
-            successful = False
-            try:
-                successful = password_hasher.verify(
-                    stored_hash, password.get_secret_value()
-                )
-            except VerifyMismatchError:
-                pass
-
-            async with db_conn.transaction():
-                await query.create_stash_password_attempt(
-                    db_conn,
-                    stash_id=stash_id,
-                    ip_address=ip_addr,
-                    successful=successful,
-                )
-
-            if not successful:
-                raise HTTPException(HTTP_401_UNAUTHORIZED, "Incorrect password")
+    if not successful:
+        raise HTTPException(
+            HTTP_401_UNAUTHORIZED,
+            "Incorrect password",
+        )
 
 
 @router.post(
@@ -386,6 +432,7 @@ async def raise_if_password_checks_fail(
         HTTP_410_GONE: {"model": Message},
         HTTP_401_UNAUTHORIZED: {"model": Message},
         HTTP_403_FORBIDDEN: {"model": Message},
+        HTTP_429_TOO_MANY_REQUESTS: {"model": Message},
     },
 )
 async def unlock_protected_file_stash(
@@ -419,6 +466,7 @@ async def unlock_protected_file_stash(
         HTTP_410_GONE: {"model": Message},
         HTTP_401_UNAUTHORIZED: {"model": Message},
         HTTP_403_FORBIDDEN: {"model": Message},
+        HTTP_429_TOO_MANY_REQUESTS: {"model": Message},
     },
 )
 async def unlock_protected_text_stash(
