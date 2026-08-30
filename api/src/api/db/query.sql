@@ -128,8 +128,14 @@ LEFT JOIN stashes_expiries e
     ON e.stash_id = s.id
 LEFT JOIN stashes_password_hashes p
     ON p.stash_id = s.id
+WHERE
+    -- Use sqlc.arg() to explicitly name your variables
+    (sqlc.arg(include_revoked)::boolean = true OR r.revoked_at IS NULL)
+AND
+    (sqlc.arg(include_expired)::boolean = true OR e.expires_at IS NULL OR e.expires_at > NOW())
 ORDER BY s.added DESC, s.id DESC
-LIMIT $1 OFFSET $2;
+LIMIT sqlc.arg('limit') OFFSET sqlc.arg('offset');
+
 
 
 -- name: GetStashTextContent :one

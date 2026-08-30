@@ -269,8 +269,13 @@ LEFT JOIN stashes_expiries e
     ON e.stash_id = s.id
 LEFT JOIN stashes_password_hashes p
     ON p.stash_id = s.id
+WHERE
+    -- Use sqlc.arg() to explicitly name your variables
+    (%(p1)s::boolean = true OR r.revoked_at IS NULL)
+AND
+    (%(p2)s::boolean = true OR e.expires_at IS NULL OR e.expires_at > NOW())
 ORDER BY s.added DESC, s.id DESC
-LIMIT %(p1)s OFFSET %(p2)s
+LIMIT %(p4)s OFFSET %(p3)s
 """
 
 GET_STASH_TEXT_CONTENT: typing.Final[typing.LiteralString] = """-- name: GetStashTextContent :one
@@ -574,11 +579,11 @@ async def get_stash_by_slug(conn: ConnectionLike, *, slug: str) -> GetStashBySlu
     return GetStashBySlugRow(id_=row[0], is_binary=row[1], slug=row[2], added=row[3], added_by_ip=str(row[4]), added_by_user_id=row[5], revoked_at=row[6], revoked_by_user_id=row[7], expires_at=row[8], is_protected=row[9])
 
 
-def list_stashes(conn: ConnectionLike, *, limit: int, offset: int) -> QueryResults[ListStashesRow]:
+def list_stashes(conn: ConnectionLike, *, include_revoked: bool, include_expired: bool, offset: int, limit: int) -> QueryResults[ListStashesRow]:
     def _decode_hook(row: psycopg.rows.TupleRow) -> ListStashesRow:
         return ListStashesRow(id_=row[0], is_binary=row[1], slug=row[2], added=row[3], added_by_ip=str(row[4]), added_by_user_id=row[5], revoked_at=row[6], revoked_by_user_id=row[7], expires_at=row[8], is_protected=row[9])
 
-    return QueryResults(conn, LIST_STASHES, _decode_hook, {"p1": limit, "p2": offset})
+    return QueryResults(conn, LIST_STASHES, _decode_hook, {"p1": include_revoked, "p2": include_expired, "p3": offset, "p4": limit})
 
 
 async def get_stash_text_content(conn: ConnectionLike, *, stash_id: int) -> str | None:

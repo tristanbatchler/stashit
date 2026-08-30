@@ -1,5 +1,4 @@
 import { listStashesApiV1StashesGet } from '$lib/client';
-import { redirect } from '@sveltejs/kit'; // [!] Import redirect
 import type { PageServerLoad } from './$types';
 
 const PAGE_SIZE = 10;
@@ -9,13 +8,13 @@ export const load: PageServerLoad = async ({ url, parent, request }) => {
 	const page = Number.isInteger(requestedPage) && requestedPage > 0 ? requestedPage : 1;
 
 	const { user } = await parent();
-
 	const cookie = request.headers.get('cookie') ?? '';
+	const take = page === 1 ? PAGE_SIZE + 1 : PAGE_SIZE;
 
-	// Fetch one extra item so we can tell whether a next page exists without
-	// the API having to expose a total count.
 	const stashesPromise = listStashesApiV1StashesGet({
-		query: { page, take: PAGE_SIZE + 1, show_revoked: user?.is_admin }, credentials: 'include', headers: { cookie }
+		query: { page, take, show_revoked: user?.is_admin }, 
+		credentials: 'include', 
+		headers: { cookie }
 	}).then((response) => {
 		const stashes = response.data ?? [];
 
@@ -25,15 +24,6 @@ export const load: PageServerLoad = async ({ url, parent, request }) => {
 			hasNext: stashes.length > PAGE_SIZE
 		};
 	});
-
-
-	// Intercept out-of-bounds page requests instantly on the server side
-	if (page > 1) {
-		const result = await stashesPromise;
-		if (result.stashes.length === 0) {
-			throw redirect(302, '/?page=1');
-		}
-	}
 
 	return {
 		page,

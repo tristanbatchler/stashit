@@ -61,21 +61,20 @@ async def list_stashes(
     show_revoked: Annotated[bool, Query()] = False,
     show_expired: Annotated[bool, Query()] = False,
 ) -> Sequence[query.ListStashesRow]:
-    stashes = await query.list_stashes(db_conn, limit=take, offset=(page - 1) * take)
     if (show_revoked or show_expired) and (
         not current_user or not current_user.is_admin
     ):
         raise HTTPException(
             HTTP_403_FORBIDDEN, "You are not allowed to list expired or revoked stashes"
         )
-    now = datetime.now(UTC)
 
-    return [
-        stash
-        for stash in stashes
-        if (show_revoked or stash.revoked_at is None)
-        and (show_expired or stash.expires_at is None or stash.expires_at > now)
-    ]
+    return await query.list_stashes(
+        db_conn,
+        limit=take,
+        offset=(page - 1) * take,
+        include_revoked=show_revoked,
+        include_expired=show_expired,
+    )
 
 
 MAX_SLUG_ATTEMPTS = 10
