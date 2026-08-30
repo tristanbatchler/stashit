@@ -1,5 +1,5 @@
 <script lang="ts">
-	import '@picocss/pico/css/pico.css';
+	import '../app.scss';
 	import { resolve } from '$app/paths';
 
 	import favicon from '$lib/assets/favicon.svg';

@@ -1,0 +1,47 @@
+/* src/app.scss */
+
+// 💡 Overriding Pico v2 variables properly inside the theme configuration map block
+@use "@picocss/pico/scss/pico" with (
+  // $theme-color: "purple"
+  // $theme-color: "amber"
+  // $theme-color: "azure"
+  // $theme-color: "blue"
+  // $theme-color: "cyan"
+  // $theme-color: "fuchsia"
+  // $theme-color: "green"
+  // $theme-color: "grey"
+  // $theme-color: "indigo"
+  // $theme-color: "jade"
+  // $theme-color: "lime"
+  // $theme-color: "orange"
+  // $theme-color: "pink"
+  // $theme-color: "pumpkin"
+  $theme-color: "purple"
+  // $theme-color: "red"
+  // $theme-color: "sand"
+  // $theme-color: "slate"
+  // $theme-color: "violet"
+  // $theme-color: "yellow"
+  // $theme-color: "zinc"
+);
+
+#stash-text-content {
+  padding: 20px;
+  max-height: 450px;
+}
+
+.code-container {
+  position: relative;
+  width: 100%;
+  padding-right: 5rem;
+}
+.copy-btn {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  padding: 0.25rem 0.7rem;
+  font-size: 0.75rem;
+  width: auto;
+  background: var(--pico-card-background-color);
+  z-index: 10;
+}
