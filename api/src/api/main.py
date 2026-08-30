@@ -25,6 +25,7 @@ logger = logging.getLogger(Path(__file__).name)
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
+    app.state.banned_ips_cache = {}
     await ops.create_tables()
     await ops.db_conn_pool.open()
     yield
