@@ -182,3 +182,34 @@ CREATE INDEX IF NOT EXISTS idx_stash_lockouts_ip
 
 CREATE INDEX IF NOT EXISTS idx_stash_lockouts_expires
     ON stash_lockouts (expires);
+
+CREATE TABLE IF NOT EXISTS ip_bans
+(
+    id                 BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+    ip_address         INET NOT NULL,
+    added              TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires            TIMESTAMPTZ,
+    reason             TEXT,
+    added_by_user_id   BIGINT NOT NULL
+                       REFERENCES users (id),
+    revoked_at         TIMESTAMPTZ,
+    revoked_by_user_id BIGINT
+                       REFERENCES users (id),
+    revokation_reason  TEXT, 
+
+    CONSTRAINT chk_ip_bans_expiry
+        CHECK (expires IS NULL OR expires > added),
+    CONSTRAINT chk_ip_bans_revocation
+        CHECK (revoked_at IS NULL OR revoked_at >= added)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ip_bans_ip_address
+    ON ip_bans (ip_address);
+
+CREATE INDEX IF NOT EXISTS idx_ip_bans_active
+    ON ip_bans (ip_address, expires)
+    WHERE revoked_at IS NULL;
+
+CREATE INDEX IF NOT EXISTS idx_ip_bans_expires
+    ON ip_bans (expires)
+    WHERE revoked_at IS NULL;

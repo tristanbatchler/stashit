@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 __all__: collections.abc.Sequence[str] = (
+    "IpBan",
     "OauthState",
     "Session",
     "Stash",
@@ -26,6 +27,20 @@ import typing
 
 if typing.TYPE_CHECKING:
     import collections.abc
+
+
+class IpBan(pydantic.BaseModel):
+    model_config = pydantic.ConfigDict(arbitrary_types_allowed=True)
+
+    id_: int
+    ip_address: str
+    added: datetime.datetime
+    expires: datetime.datetime | None
+    reason: str | None
+    added_by_user_id: int
+    revoked_at: datetime.datetime | None
+    revoked_by_user_id: int | None
+    revokation_reason: str | None
 
 
 class OauthState(pydantic.BaseModel):

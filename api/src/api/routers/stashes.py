@@ -34,8 +34,6 @@ from starlette.status import (
     HTTP_500_INTERNAL_SERVER_ERROR,
 )
 
-from api.db.query import GetStashBySlugRow
-
 from ..db import models, query
 from ..dependencies import CurrentUser, DBConn, IPAddr
 from ..response_models import Message
@@ -405,7 +403,7 @@ async def raise_if_password_checks_fail(
 
         if (
             failed_attempts
-            and failed_attempts >= settings.PASSWORD_LOCKOUT_ATTEMPTS_THRESHOLD
+            and failed_attempts + 1 >= settings.PASSWORD_LOCKOUT_ATTEMPTS_THRESHOLD
         ):
             await query.create_stash_lockout(
                 db_conn,
@@ -491,7 +489,7 @@ async def unlock_protected_text_stash(
 
 async def get_stash_from_slug(
     slug: str, db_conn: DBConn, current_user: CurrentUser
-) -> GetStashBySlugRow:
+) -> query.GetStashBySlugRow:
     stash = await query.get_stash_by_slug(db_conn, slug=slug)
 
     if stash is None:

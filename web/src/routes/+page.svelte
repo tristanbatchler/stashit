@@ -46,8 +46,8 @@
 							<th scope="col">Unique ID</th>
 							<th scope="col">Type</th>
 							<th scope="col">Added</th>
-							<th scope="col">IP</th>
 							{#if data.user?.is_admin}
+								<th scope="col">IP</th>
 								<th scope="col">Revoked</th>
 								<th scope="col">Expires</th>
 							{/if}
@@ -70,8 +70,8 @@
 										{formatDateShort(stash.added)}
 									</span>
 								</td>
-								<td><code>{stash.added_by_ip}</code></td>
 								{#if data.user?.is_admin}
+									<td><code>{stash.added_by_ip}</code></td>
 									<td>
 										{#if stash.revoked_at}
 											<span data-tooltip={formatDateFull(stash.revoked_at)}>

@@ -347,3 +347,91 @@ WHERE stash_id = @stash_id
   AND ip_address = @ip_address
   AND successful = FALSE
   AND attempted_at > @attempted_since;
+
+-- name: CreateIPBan :one
+INSERT INTO ip_bans (
+    ip_address,
+    expires,
+    reason,
+    added_by_user_id
+)
+VALUES ($1, $2, $3, $4)
+RETURNING *;
+
+
+-- name: GetIPBan :one
+SELECT
+    id,
+    ip_address,
+    added,
+    expires,
+    reason,
+    added_by_user_id,
+    revoked_at,
+    revoked_by_user_id,
+    revokation_reason
+FROM ip_bans
+WHERE id = $1;
+
+
+-- name: GetActiveIPBan :one
+SELECT
+    id,
+    ip_address,
+    added,
+    expires,
+    reason,
+    added_by_user_id,
+    revoked_at,
+    revoked_by_user_id,
+    revokation_reason
+FROM ip_bans
+WHERE ip_address = $1
+  AND revoked_at IS NULL
+  AND (expires IS NULL OR expires > CURRENT_TIMESTAMP)
+ORDER BY expires DESC NULLS FIRST
+LIMIT 1;
+
+
+-- name: ListIPBans :many
+SELECT
+    id,
+    ip_address,
+    added,
+    expires,
+    reason,
+    added_by_user_id,
+    revoked_at,
+    revoked_by_user_id,
+    revokation_reason
+FROM ip_bans
+WHERE ip_address = $1
+ORDER BY added DESC, id DESC;
+
+
+-- name: ListActiveIPBans :many
+SELECT
+    id,
+    ip_address,
+    added,
+    expires,
+    reason,
+    added_by_user_id,
+    revoked_at,
+    revoked_by_user_id,
+    revokation_reason
+FROM ip_bans
+WHERE revoked_at IS NULL
+  AND (expires IS NULL OR expires > CURRENT_TIMESTAMP)
+ORDER BY added DESC, id DESC;
+
+
+-- name: RevokeIPBan :exec
+UPDATE ip_bans
+SET
+    revoked_at = CURRENT_TIMESTAMP,
+    revoked_by_user_id = $2
+WHERE id = $1
+  AND revoked_at IS NULL;
+
+

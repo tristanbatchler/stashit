@@ -14,6 +14,7 @@ __all__: collections.abc.Sequence[str] = (
     "ListStashesRow",
     "QueryResults",
     "check_slug_exists",
+    "create_i_p_ban",
     "create_o_auth_state",
     "create_session",
     "create_stash",
@@ -30,7 +31,9 @@ __all__: collections.abc.Sequence[str] = (
     "delete_session",
     "delete_stash_binary_path",
     "delete_stash_text_content",
+    "get_active_i_p_ban",
     "get_active_stash_lockout",
+    "get_i_p_ban",
     "get_o_auth_state",
     "get_recent_failed_stash_password_attempts",
     "get_stash",
@@ -46,7 +49,10 @@ __all__: collections.abc.Sequence[str] = (
     "get_stash_views",
     "get_stash_views_by_slug",
     "get_user_by_session_token_hash",
+    "list_active_i_p_bans",
+    "list_i_p_bans",
     "list_stashes",
+    "revoke_i_p_ban",
     "upsert_user",
 )
 
@@ -492,6 +498,93 @@ WHERE stash_id = %(p1)s
   AND attempted_at > %(p3)s
 """
 
+CREATE_I_P_BAN: typing.Final[typing.LiteralString] = """-- name: CreateIPBan :one
+INSERT INTO ip_bans (
+    ip_address,
+    expires,
+    reason,
+    added_by_user_id
+)
+VALUES (%(p1)s, %(p2)s, %(p3)s, %(p4)s)
+RETURNING id, ip_address, added, expires, reason, added_by_user_id, revoked_at, revoked_by_user_id, revokation_reason
+"""
+
+GET_I_P_BAN: typing.Final[typing.LiteralString] = """-- name: GetIPBan :one
+SELECT
+    id,
+    ip_address,
+    added,
+    expires,
+    reason,
+    added_by_user_id,
+    revoked_at,
+    revoked_by_user_id,
+    revokation_reason
+FROM ip_bans
+WHERE id = %(p1)s
+"""
+
+GET_ACTIVE_I_P_BAN: typing.Final[typing.LiteralString] = """-- name: GetActiveIPBan :one
+SELECT
+    id,
+    ip_address,
+    added,
+    expires,
+    reason,
+    added_by_user_id,
+    revoked_at,
+    revoked_by_user_id,
+    revokation_reason
+FROM ip_bans
+WHERE ip_address = %(p1)s
+  AND revoked_at IS NULL
+  AND (expires IS NULL OR expires > CURRENT_TIMESTAMP)
+ORDER BY expires DESC NULLS FIRST
+LIMIT 1
+"""
+
+LIST_I_P_BANS: typing.Final[typing.LiteralString] = """-- name: ListIPBans :many
+SELECT
+    id,
+    ip_address,
+    added,
+    expires,
+    reason,
+    added_by_user_id,
+    revoked_at,
+    revoked_by_user_id,
+    revokation_reason
+FROM ip_bans
+WHERE ip_address = %(p1)s
+ORDER BY added DESC, id DESC
+"""
+
+LIST_ACTIVE_I_P_BANS: typing.Final[typing.LiteralString] = """-- name: ListActiveIPBans :many
+SELECT
+    id,
+    ip_address,
+    added,
+    expires,
+    reason,
+    added_by_user_id,
+    revoked_at,
+    revoked_by_user_id,
+    revokation_reason
+FROM ip_bans
+WHERE revoked_at IS NULL
+  AND (expires IS NULL OR expires > CURRENT_TIMESTAMP)
+ORDER BY added DESC, id DESC
+"""
+
+REVOKE_I_P_BAN: typing.Final[typing.LiteralString] = """-- name: RevokeIPBan :exec
+UPDATE ip_bans
+SET
+    revoked_at = CURRENT_TIMESTAMP,
+    revoked_by_user_id = %(p2)s
+WHERE id = %(p1)s
+  AND revoked_at IS NULL
+"""
+
 
 class QueryResults[T]:
     __slots__ = ("_conn", "_cursor", "_decode_hook", "_iterator", "_params", "_sql")
@@ -742,3 +835,42 @@ async def get_recent_failed_stash_password_attempts(conn: ConnectionLike, *, sta
     if row is None:
         return None
     return row[0]
+
+
+async def create_i_p_ban(conn: ConnectionLike, *, ip_address: str, expires: datetime.datetime | None, reason: str | None, added_by_user_id: int) -> models.IpBan | None:
+    row = await (await conn.execute(CREATE_I_P_BAN, {"p1": ip_address, "p2": expires, "p3": reason, "p4": added_by_user_id})).fetchone()
+    if row is None:
+        return None
+    return models.IpBan(id_=row[0], ip_address=str(row[1]), added=row[2], expires=row[3], reason=row[4], added_by_user_id=row[5], revoked_at=row[6], revoked_by_user_id=row[7], revokation_reason=row[8])
+
+
+async def get_i_p_ban(conn: ConnectionLike, *, id_: int) -> models.IpBan | None:
+    row = await (await conn.execute(GET_I_P_BAN, {"p1": id_})).fetchone()
+    if row is None:
+        return None
+    return models.IpBan(id_=row[0], ip_address=str(row[1]), added=row[2], expires=row[3], reason=row[4], added_by_user_id=row[5], revoked_at=row[6], revoked_by_user_id=row[7], revokation_reason=row[8])
+
+
+async def get_active_i_p_ban(conn: ConnectionLike, *, ip_address: str) -> models.IpBan | None:
+    row = await (await conn.execute(GET_ACTIVE_I_P_BAN, {"p1": ip_address})).fetchone()
+    if row is None:
+        return None
+    return models.IpBan(id_=row[0], ip_address=str(row[1]), added=row[2], expires=row[3], reason=row[4], added_by_user_id=row[5], revoked_at=row[6], revoked_by_user_id=row[7], revokation_reason=row[8])
+
+
+def list_i_p_bans(conn: ConnectionLike, *, ip_address: str) -> QueryResults[models.IpBan]:
+    def _decode_hook(row: psycopg.rows.TupleRow) -> models.IpBan:
+        return models.IpBan(id_=row[0], ip_address=str(row[1]), added=row[2], expires=row[3], reason=row[4], added_by_user_id=row[5], revoked_at=row[6], revoked_by_user_id=row[7], revokation_reason=row[8])
+
+    return QueryResults(conn, LIST_I_P_BANS, _decode_hook, {"p1": ip_address})
+
+
+def list_active_i_p_bans(conn: ConnectionLike) -> QueryResults[models.IpBan]:
+    def _decode_hook(row: psycopg.rows.TupleRow) -> models.IpBan:
+        return models.IpBan(id_=row[0], ip_address=str(row[1]), added=row[2], expires=row[3], reason=row[4], added_by_user_id=row[5], revoked_at=row[6], revoked_by_user_id=row[7], revokation_reason=row[8])
+
+    return QueryResults(conn, LIST_ACTIVE_I_P_BANS, _decode_hook)
+
+
+async def revoke_i_p_ban(conn: ConnectionLike, *, id_: int, revoked_by_user_id: int | None) -> None:
+    await conn.execute(REVOKE_I_P_BAN, {"p1": id_, "p2": revoked_by_user_id})
