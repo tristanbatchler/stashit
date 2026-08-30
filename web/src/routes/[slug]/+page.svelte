@@ -4,7 +4,6 @@
 	import QRCode from '@castlenine/svelte-qrcode';
 	import { refreshAll } from '$app/navigation';
 	import hljs from 'highlight.js';
-	import 'highlight.js/styles/github.min.css'
 
 	import { revokeStashApiV1StashesSlugDelete } from '$lib/client';
 
@@ -40,6 +39,8 @@
 	);
 
 	let copyStatus = $state("Copy");
+	let isRevoking = $state(false);
+	let showRevokeModal = $state(false);
 
 	function highlight(node: HTMLElement, content: string) {
 		function update(text: string) {
@@ -54,6 +55,12 @@
 		};
 	}
 
+	function formatDate(dateStr: string | null | undefined): string {
+		if (!dateStr) return 'Never';
+		const date = new Date(dateStr);
+		return isNaN(date.getTime()) ? dateStr : date.toLocaleString();
+	}
+
 	async function copyToClipboard() {
 		try {
 			await navigator.clipboard.writeText(activeContent);
@@ -62,15 +69,19 @@
 				copyStatus = "Copy";
 			}, 2000);
 		} catch (err) {
-			alert("Failed to copy text layout content.");
+			alert(`Failed to copy content: ${err}`);
 		}
 	}
 
 	async function revoke() {
+		isRevoking = true;
 		const { error } = await revokeStashApiV1StashesSlugDelete({
 			path: { slug: data.slug },
 			credentials: 'include'
 		});
+
+		isRevoking = false;
+		showRevokeModal = false;
 
 		if (error) {
 			alert(`Error revoking stash: ${error.detail}`);
@@ -81,146 +92,181 @@
 	}
 </script>
 
-<header>
-	<h5>{data.slug}</h5>
-</header>
-
 <article>
-	<section>
-		{#if isRevoked}
-			<p>This stash has been revoked.</p>
-
-		{:else if isExpired && !isAdmin}
-			<p>This stash has expired.</p>
-
-		{:else}
-			{#if needsPassword}
-				<form method="POST" action={formAction}>
-					<label>
-						Password
-						<input
-							type="password"
-							name="password"
-							autocomplete="current-password"
-							required
-						/>
-					</label>
-
-					<button type="submit">
-						{data.isBinary ? 'Download' : 'Unlock'}
-					</button>
-
-					{#if unlockError}
-						<p>{unlockError}</p>
-					{/if}
-				</form>
-			{/if}
-
-			{#if data.isBinary && !needsPassword}
-				<p>
-					<a href={resolve('/[slug]/download', { slug: data.slug })}>
-						Download file
-					</a>
-				</p>
-			{/if}
-
-			{#if shouldShowText}
-				<!-- 💡 Wrapped inside a styled layout wrapper container block -->
-				<div class="code-container">
-					<button 
-						type="button" 
-						class="copy-btn secondary outline" 
-						onclick={copyToClipboard}
-					>
-						{copyStatus}
-					</button>
-					<pre id="stash-text-content" use:highlight={activeContent}></pre>
-				</div>
-			{/if}
+	<header class="stash-header">
+		<kbd class="slug-badge">{data.slug}</kbd>
+		<small><strong>{data.isBinary ? 'Binary File' : 'Text'}</strong></small>
+		{#if data.metadata.is_protected}
+			<mark>Password Protected</mark>
 		{/if}
+	</header>
 
-		{#if isAdmin}
-			<section>
-				<h6>Metadata</h6>
+	{#if isRevoked}
+		<blockquote class="status-error">
+			<strong>Stash Revoked:</strong> This content has been revoked and is no longer accessible.
+		</blockquote>
 
-				<dl>
-					<dt>Created</dt>
-					<dd>{data.metadata.added ?? 'N/A'}</dd>
+	{:else if isExpired && !isAdmin}
+		<blockquote class="status-error">
+			<strong>Stash Expired:</strong> This content has reached its expiry limit.
+		</blockquote>
 
-					<dt>Created by</dt>
-					<dd>{data.metadata.added_by_ip ?? 'N/A'}</dd>
-
-					<dt>Expires</dt>
-					<dd>{data.metadata.expires_at ?? 'Never'}</dd>
-
-					<dt>Type</dt>
-					<dd>{data.isBinary ? 'Binary' : 'Text'}</dd>
-
-					<dt>Revoked</dt>
-					<dd>{data.metadata.revoked_at ?? 'No'}</dd>
-
-					<dt>Revoked by</dt>
-					<dd>{data.metadata.revoked_by_user_id ?? 'N/A'}</dd>
-
-					<dt>Protection</dt>
-					<dd>
-						{data.metadata.is_protected
-							? 'Password protected'
-							: 'None'}
-					</dd>
-
-					{#if data.isBinary}
-						<dt>Downloads</dt>
-						<dd>{data.views ?? 'N/A'}</dd>
-
-						<dt>Unique downloads</dt>
-						<dd>{data.uniqueViews ?? 'N/A'}</dd>
-					{:else}
-						<dt>Views</dt>
-						<dd>{data.views ?? 'N/A'}</dd>
-
-						<dt>Unique views</dt>
-						<dd>{data.uniqueViews ?? 'N/A'}</dd>
-					{/if}
-				</dl>
-			</section>
-
-			{#if !isRevoked}
-				<section>
-					<button type="button" onclick={revoke}>
-						Revoke
-					</button>
-				</section>
-			{/if}
-
-		{:else if !isRevoked && !isExpired}
-			<p>
-				<strong>Expires:</strong>
-				{data.metadata.expires_at ?? 'Never'}
-			</p>
-
-			<section>
-				<h6>Share</h6>
-				<QRCode data={pageUrl} />
-			</section>
-
-			<footer>
-				{#if data.isBinary}
-					<p>Downloads: {data.views ?? 'N/A'}</p>
-					<p>Unique downloads: {data.uniqueViews ?? 'N/A'}</p>
-				{:else}
-					<p>
-						Views: {data.views !== undefined
-							? data.views + 1
-							: 'N/A'}
-					</p>
-					<p>
-						Unique views: {data.uniqueViews !== undefined
-							? data.uniqueViews + 1
-							: 'N/A'}
-					</p>
+	{:else}
+		{#if needsPassword}
+			<form method="POST" action={formAction} class="auth-form">
+				<label>
+					Password Required
+					<input
+						type="password"
+						name="password"
+						autocomplete="current-password"
+						placeholder="Enter password to unlock"
+						required
+					/>
+				</label>
+				<button type="submit">{data.isBinary ? 'Download File' : 'Unlock Content'}</button>
+				{#if unlockError}
+					<small class="error-text">{unlockError}</small>
 				{/if}
-			</footer>
+			</form>
 		{/if}
-	</section>
+
+		{#if data.isBinary && !needsPassword}
+			<a href={resolve('/[slug]/download', { slug: data.slug })} role="button">
+				Download File
+			</a>
+		{/if}
+
+		{#if shouldShowText}
+			<div class="code-container">
+				<button 
+					type="button" 
+					class="secondary copy-btn" 
+					onclick={copyToClipboard}
+				>
+					{copyStatus}
+				</button>
+				<pre id="stash-text-content" use:highlight={activeContent}></pre>
+			</div>
+		{/if}
+	{/if}
+
+	<!-- Admin Control Panel & Full Details (Includes Share QR & Standard Views) -->
+	{#if isAdmin}
+		<footer>
+			<div class="admin-header">
+				<h6>Admin Details</h6>
+				{#if !isRevoked}
+					<button type="button" class="danger-btn" onclick={() => (showRevokeModal = true)}>
+						Revoke Stash
+					</button>
+				{/if}
+			</div>
+
+			<div class="grid">
+				<div>
+					<small>Created</small>
+					<div>{formatDate(data.metadata.added)}</div>
+				</div>
+				<div>
+					<small>Created By IP</small>
+					<div><code>{data.metadata.added_by_ip ?? 'N/A'}</code></div>
+				</div>
+				<div>
+					<small>Expires</small>
+					<div>{formatDate(data.metadata.expires_at)}</div>
+				</div>
+				<div>
+					<small>Protection</small>
+					<div>{data.metadata.is_protected ? 'Password' : 'None'}</div>
+				</div>
+			</div>
+			
+			<div class="grid admin-stats">
+				<div>
+					<small>Revoked Status</small>
+					<div>{data.metadata.revoked_at ? formatDate(data.metadata.revoked_at) : 'No'}</div>
+				</div>
+				<div>
+					<small>Revoked By User ID</small>
+					<div>{data.metadata.revoked_by_user_id ?? 'N/A'}</div>
+				</div>
+				<div>
+					<small>{data.isBinary ? 'Downloads' : 'Views'}</small>
+					<div>
+						<strong>
+							{data.isBinary 
+								? (data.views ?? 'N/A') 
+								: (data.views !== undefined ? data.views + 1 : 'N/A')}
+						</strong> 
+						<small>
+							({data.isBinary 
+								? (data.uniqueViews ?? 'N/A') 
+								: (data.uniqueViews !== undefined ? data.uniqueViews + 1 : 'N/A')} unique)
+						</small>
+					</div>
+				</div>
+				<div>
+					<small>Share Stash</small>
+					<div class="qr-wrapper">
+						<QRCode data={pageUrl} size={100} />
+					</div>
+				</div>
+			</div>
+		</footer>
+
+	<!-- Standard User Footer Stats & Sharing -->
+	{:else if !isRevoked && !isExpired}
+		<footer>
+			<div class="grid">
+				<div>
+					<small>Expires</small>
+					<div><strong>{formatDate(data.metadata.expires_at)}</strong></div>
+				</div>
+				<div>
+					<small>{data.isBinary ? 'Downloads' : 'Views'}</small>
+					<div>
+						<strong>
+							{data.isBinary 
+								? (data.views ?? 'N/A') 
+								: (data.views !== undefined ? data.views + 1 : 'N/A')}
+						</strong> 
+						<small>
+							({data.isBinary 
+								? (data.uniqueViews ?? 'N/A') 
+								: (data.uniqueViews !== undefined ? data.uniqueViews + 1 : 'N/A')} unique)
+						</small>
+					</div>
+				</div>
+				<div>
+					<small>Share Stash</small>
+					<div class="qr-wrapper">
+						<QRCode data={pageUrl} size={120} />
+					</div>
+				</div>
+			</div>
+		</footer>
+	{/if}
 </article>
+
+<dialog open={showRevokeModal}>
+	<article>
+		<header>
+			<p><strong>Confirm Revocation</strong></p>
+			<a href="#close" aria-label="Close" class="close" onclick={(e) => { e.preventDefault(); showRevokeModal = false; }}></a>
+		</header>
+		<p>
+			Are you sure you want to revoke stash <strong>{data.slug}</strong>? This action cannot be undone, and the content will no longer be accessible.
+		</p>
+		<footer>
+			<div class="modal-actions">
+				<button type="button" class="secondary" onclick={() => (showRevokeModal = false)} disabled={isRevoking}>
+					Cancel
+				</button>
+				<button type="button" class="danger-btn" aria-busy={isRevoking} disabled={isRevoking} onclick={revoke}>
+					{isRevoking ? 'Revoking…' : 'Yes, Revoke Stash'}
+				</button>
+			</div>
+		</footer>
+	</article>
+</dialog>

@@ -3,6 +3,29 @@
 	import { resolve } from '$app/paths';
 
 	let { data } = $props();
+
+	function formatDateShort(isoString: string | null | undefined): string {
+		if (!isoString) return '—';
+		const date = new Date(isoString);
+		if (isNaN(date.getTime())) return isoString;
+
+		return new Intl.DateTimeFormat('en-AU', {
+			day: 'numeric',
+			month: 'short',
+			year: 'numeric'
+		}).format(date);
+	}
+
+	function formatDateFull(isoString: string | null | undefined): string {
+		if (!isoString) return '';
+		const date = new Date(isoString);
+		if (isNaN(date.getTime())) return isoString;
+
+		return new Intl.DateTimeFormat('en-AU', {
+			dateStyle: 'medium',
+			timeStyle: 'medium'
+		}).format(date);
+	}
 </script>
 
 {#await data.streamed.stashes}
@@ -11,12 +34,12 @@
 	</section>
 {:then response}
 	{#if response.error}
-		<p>Error: {response.error?.detail || response.error}</p>
+		<p class="error-msg">Error: {response.error?.detail || response.error}</p>
 	{:else}
 		{#if response.stashes.length === 0 && data.page > 1}
 			{goto(resolve('/'))}
 		{:else}
-			<div class=".overflow-auto">
+			<div class="overflow-auto">
 				<table>
 					<thead>
 						<tr>
@@ -34,19 +57,44 @@
 						{#each response.stashes as stash (stash.id_)}
 							<tr>
 								<th scope="row">
-									<a href={resolve('/[slug]', { slug: stash.slug })}>{stash.slug}</a>
+									<a 
+										href={resolve('/[slug]', { slug: stash.slug })} 
+										class="slug-link"
+									>
+										{stash.slug}
+									</a>
 								</th>
 								<td>{stash.is_binary ? 'File' : 'Text'}</td>
-								<td>{stash.added}</td>
-								<td>{stash.added_by_ip}</td>
+								<td>
+									<span data-tooltip={formatDateFull(stash.added)}>
+										{formatDateShort(stash.added)}
+									</span>
+								</td>
+								<td><code>{stash.added_by_ip}</code></td>
 								{#if data.user?.is_admin}
-									<td>{stash.revoked_at}</td>
-									<td>{stash.expires_at}</td>
+									<td>
+										{#if stash.revoked_at}
+											<span data-tooltip={formatDateFull(stash.revoked_at)}>
+												{formatDateShort(stash.revoked_at)}
+											</span>
+										{:else}
+											-
+										{/if}
+									</td>
+									<td>
+										{#if stash.expires_at}
+											<span data-tooltip={formatDateFull(stash.expires_at)}>
+												{formatDateShort(stash.expires_at)}
+											</span>
+										{:else}
+											-
+										{/if}
+									</td>
 								{/if}
 							</tr>
 						{:else}
 							<tr>
-								<td colspan="4">No stashes yet.</td>
+								<td colspan={data.user?.is_admin ? 6 : 4}>No stashes yet.</td>
 							</tr>
 						{/each}
 					</tbody>
@@ -63,7 +111,7 @@
 					<li><span>Page {data.page}</span></li>
 					{#if response.hasNext}
 						<li>
-							<a href={resolve(`/?page=${data.page + 1}`)}>Nek</a>
+							<a href={resolve(`/?page=${data.page + 1}`)}>Next</a>
 						</li>
 					{/if}
 				</ul>
