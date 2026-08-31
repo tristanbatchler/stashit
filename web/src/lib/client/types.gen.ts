@@ -19,7 +19,7 @@ export type BodyAddBinaryStashApiV1StashesFilePost = {
 };
 
 /**
- * Body_add_ip_ban_api_v1_ip_ip_addr__ban_post
+ * Body_add_ip_ban_api_v1_ip__ip_addr__ban_post
  */
 export type BodyAddIpBanApiV1IpIpAddrBanPost = {
     /**
@@ -967,7 +967,7 @@ export type ListIpActivityApiV1IpIpAddrActivityGetData = {
          */
         take: number;
     };
-    url: '/api/v1/ip{ip_addr}/activity';
+    url: '/api/v1/ip/{ip_addr}/activity';
 };
 
 export type ListIpActivityApiV1IpIpAddrActivityGetErrors = {
@@ -989,7 +989,7 @@ export type ListIpActivityApiV1IpIpAddrActivityGetError = ListIpActivityApiV1IpI
 
 export type ListIpActivityApiV1IpIpAddrActivityGetResponses = {
     /**
-     * Response List Ip Activity Api V1 Ip Ip Addr  Activity Get
+     * Response List Ip Activity Api V1 Ip  Ip Addr  Activity Get
      *
      * Successful Response
      */
@@ -998,8 +998,8 @@ export type ListIpActivityApiV1IpIpAddrActivityGetResponses = {
 
 export type ListIpActivityApiV1IpIpAddrActivityGetResponse = ListIpActivityApiV1IpIpAddrActivityGetResponses[keyof ListIpActivityApiV1IpIpAddrActivityGetResponses];
 
-export type AddIpBanApiV1IpIpAddrBanPostData = {
-    body: BodyAddIpBanApiV1IpIpAddrBanPost;
+export type GetActiveIpBanApiV1IpIpAddrBansActiveGetData = {
+    body?: never;
     path: {
         /**
          * Ip Addr
@@ -1007,10 +1007,10 @@ export type AddIpBanApiV1IpIpAddrBanPostData = {
         ip_addr: string;
     };
     query?: never;
-    url: '/api/v1/ip{ip_addr}/ban';
+    url: '/api/v1/ip/{ip_addr}/bans/active';
 };
 
-export type AddIpBanApiV1IpIpAddrBanPostErrors = {
+export type GetActiveIpBanApiV1IpIpAddrBansActiveGetErrors = {
     /**
      * Forbidden
      */
@@ -1025,13 +1025,53 @@ export type AddIpBanApiV1IpIpAddrBanPostErrors = {
     500: Message;
 };
 
+export type GetActiveIpBanApiV1IpIpAddrBansActiveGetError = GetActiveIpBanApiV1IpIpAddrBansActiveGetErrors[keyof GetActiveIpBanApiV1IpIpAddrBansActiveGetErrors];
+
+export type GetActiveIpBanApiV1IpIpAddrBansActiveGetResponses = {
+    /**
+     * Response Get Active Ip Ban Api V1 Ip  Ip Addr  Bans Active Get
+     *
+     * Successful Response
+     */
+    200: IpBan | null;
+};
+
+export type GetActiveIpBanApiV1IpIpAddrBansActiveGetResponse = GetActiveIpBanApiV1IpIpAddrBansActiveGetResponses[keyof GetActiveIpBanApiV1IpIpAddrBansActiveGetResponses];
+
+export type AddIpBanApiV1IpIpAddrBanPostData = {
+    body: BodyAddIpBanApiV1IpIpAddrBanPost;
+    path: {
+        /**
+         * Ip Addr
+         */
+        ip_addr: string;
+    };
+    query?: never;
+    url: '/api/v1/ip/{ip_addr}/ban';
+};
+
+export type AddIpBanApiV1IpIpAddrBanPostErrors = {
+    /**
+     * Forbidden
+     */
+    403: Message;
+    /**
+     * Unprocessable Content
+     */
+    422: Message;
+    /**
+     * Internal Server Error
+     */
+    500: Message;
+};
+
 export type AddIpBanApiV1IpIpAddrBanPostError = AddIpBanApiV1IpIpAddrBanPostErrors[keyof AddIpBanApiV1IpIpAddrBanPostErrors];
 
 export type AddIpBanApiV1IpIpAddrBanPostResponses = {
     /**
      * Successful Response
      */
-    201: IpBan;
+    200: IpBan;
 };
 
 export type AddIpBanApiV1IpIpAddrBanPostResponse = AddIpBanApiV1IpIpAddrBanPostResponses[keyof AddIpBanApiV1IpIpAddrBanPostResponses];

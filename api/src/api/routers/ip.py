@@ -6,9 +6,9 @@ from typing import Annotated
 from fastapi import APIRouter, Body, HTTPException, Query
 from starlette.status import (
     HTTP_200_OK,
-    HTTP_201_CREATED,
     HTTP_204_NO_CONTENT,
     HTTP_403_FORBIDDEN,
+    HTTP_422_UNPROCESSABLE_CONTENT,
     HTTP_500_INTERNAL_SERVER_ERROR,
 )
 
@@ -23,7 +23,7 @@ router = APIRouter(prefix="/ip")
 
 
 @router.get(
-    "{ip_addr}/activity",
+    "/{ip_addr}/activity",
     status_code=HTTP_200_OK,
     response_model=Sequence[query.ListIPActivityRow],
     responses={HTTP_403_FORBIDDEN: {"model": Message}},
@@ -49,10 +49,34 @@ async def list_ip_activity(
     )
 
 
-@router.post(
-    "{ip_addr}/ban",
-    status_code=HTTP_201_CREATED,
+@router.get(
+    "/{ip_addr}/bans/active",
+    status_code=HTTP_200_OK,
+    response_model=models.IpBan | None,
     responses={HTTP_403_FORBIDDEN: {"model": Message}},
+)
+async def get_active_ip_ban(
+    ip_addr: str,
+    db_conn: DBConn,
+    current_user: CurrentUser,
+) -> models.IpBan | None:
+    if not current_user or not current_user.is_admin:
+        raise HTTPException(
+            HTTP_403_FORBIDDEN,
+            "You are not allowed to do that",
+        )
+
+    return await query.get_active_i_p_ban(db_conn, ip_address=ip_addr)
+
+
+@router.post(
+    "/{ip_addr}/ban",
+    status_code=HTTP_200_OK,
+    response_model=models.IpBan,
+    responses={
+        HTTP_403_FORBIDDEN: {"model": Message},
+        HTTP_422_UNPROCESSABLE_CONTENT: {"model": Message},
+    },
 )
 async def add_ip_ban(
     ip_addr: str,
@@ -121,5 +145,5 @@ async def revoke_ban(
         )
 
     active_ban = await query.get_active_i_p_ban(db_conn, ip_address=ip_addr)
-    if not active_ban:
+    if not active_ban and ip_addr in banned_ips_cache:
         banned_ips_cache.remove(ip_addr)

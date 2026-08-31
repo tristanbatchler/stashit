@@ -441,15 +441,15 @@ RETURNING ip_address;
 SELECT
     event_at,
     event_type,
-    stash_id,
-    slug,
+    COALESCE(stash_id, 0)::BIGINT AS stash_id,
+    COALESCE(slug, '')::TEXT AS slug,
     details
 FROM (
     SELECT
         s.added AS event_at,
         'stash_created'::TEXT AS event_type,
-        s.id AS stash_id,
-        s.slug,
+        s.id::BIGINT AS stash_id,
+        s.slug::TEXT AS slug,
         NULL::TEXT AS details
     FROM stashes s
     WHERE s.added_by_ip = @ip_address
@@ -459,15 +459,14 @@ FROM (
     SELECT
         v.viewed_at AS event_at,
         CASE
-            WHEN s.is_binary THEN 'stash_downloaded'
-            ELSE 'stash_viewed'
+            WHEN s.is_binary THEN 'stash_downloaded'::TEXT
+            ELSE 'stash_viewed'::TEXT
         END AS event_type,
-        s.id AS stash_id,
-        s.slug,
+        s.id::BIGINT AS stash_id,
+        s.slug::TEXT AS slug,
         NULL::TEXT AS details
     FROM stash_views v
-    INNER JOIN stashes s
-        ON s.id = v.stash_id
+    INNER JOIN stashes s ON s.id = v.stash_id
     WHERE v.ip_address = @ip_address
 
     UNION ALL
@@ -475,36 +474,45 @@ FROM (
     SELECT
         p.attempted_at AS event_at,
         CASE
-            WHEN p.successful THEN 'password_success'
-            ELSE 'password_failure'
+            WHEN p.successful THEN 'password_success'::TEXT
+            ELSE 'password_failure'::TEXT
         END AS event_type,
-        s.id AS stash_id,
-        s.slug,
+        s.id::BIGINT AS stash_id,
+        s.slug::TEXT AS slug,
         NULL::TEXT AS details
     FROM stash_password_attempts p
-    INNER JOIN stashes s
-        ON s.id = p.stash_id
+    INNER JOIN stashes s ON s.id = p.stash_id
     WHERE p.ip_address = @ip_address
 
     UNION ALL
 
+    -- banned (target IP)
     SELECT
         b.added AS event_at,
         'ip_banned'::TEXT AS event_type,
         NULL::BIGINT AS stash_id,
         NULL::TEXT AS slug,
-        b.reason AS details
+        concat_ws(
+            ' | ',
+            'by_user_id=' || b.added_by_user_id::text,
+            NULLIF(b.reason, '')
+        ) AS details
     FROM ip_bans b
     WHERE b.ip_address = @ip_address
 
     UNION ALL
 
+    -- ban revoked (target IP)
     SELECT
         b.revoked_at AS event_at,
         'ip_ban_revoked'::TEXT AS event_type,
         NULL::BIGINT AS stash_id,
         NULL::TEXT AS slug,
-        b.revokation_reason AS details
+        concat_ws(
+            ' | ',
+            'by_user_id=' || b.revoked_by_user_id::text,
+            NULLIF(b.revocation_reason, '')
+        ) AS details
     FROM ip_bans b
     WHERE b.ip_address = @ip_address
       AND b.revoked_at IS NOT NULL
@@ -514,14 +522,14 @@ FROM (
     SELECT
         r.revoked_at AS event_at,
         'stash_revoked'::TEXT AS event_type,
-        s.id AS stash_id,
-        s.slug,
-        NULL::TEXT AS details
+        s.id::BIGINT AS stash_id,
+        s.slug::TEXT AS slug,
+        'by_user_id=' || r.revoked_by_user_id::text AS details
     FROM stashes_revocations r
-    INNER JOIN stashes s
-        ON s.id = r.stash_id
+    INNER JOIN stashes s ON s.id = r.stash_id
     WHERE s.added_by_ip = @ip_address
 ) events
+WHERE event_at IS NOT NULL
 ORDER BY event_at DESC
 LIMIT sqlc.arg('limit')::int
 OFFSET sqlc.arg('offset')::int;
