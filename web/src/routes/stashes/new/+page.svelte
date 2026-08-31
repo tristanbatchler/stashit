@@ -4,7 +4,7 @@
 
 	let activeTab = $state<'text' | 'file'>('text');
 	let text = $state('');
-	let fileInput: HTMLInputElement | null = null;
+	let fileInput = $state<HTMLInputElement | null>(null);
 	let selectedFileName = $state<string | null>(null);
 
 	let hasExpiry = $state(false);
@@ -56,7 +56,7 @@
 				textPayload,
 				hasExpiry ? new Date(expiresAt).toISOString() : undefined,
 				password || undefined,
-				(loaded, total) => {
+				(loaded: number, total: number) => {
 					progressPercent = Math.round((loaded / total) * 100);
 				},
 			);
