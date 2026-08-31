@@ -94,7 +94,7 @@
 							</tr>
 						{:else}
 							<tr>
-								<td colspan={data.user?.is_admin ? 6 : 4}>No stashes yet.</td>
+								<td colspan={data.user?.is_admin ? 6 : 3}>No stashes yet.</td>
 							</tr>
 						{/each}
 					</tbody>
