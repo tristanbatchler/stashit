@@ -195,7 +195,7 @@ CREATE TABLE IF NOT EXISTS ip_bans
     revoked_at         TIMESTAMPTZ,
     revoked_by_user_id BIGINT
                        REFERENCES users (id),
-    revokation_reason  TEXT, 
+    revocation_reason  TEXT, 
 
     CONSTRAINT chk_ip_bans_expiry
         CHECK (expires IS NULL OR expires > added),

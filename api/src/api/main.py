@@ -17,6 +17,7 @@ from starlette.status import (
 from .db import ops
 from .response_models import Message
 from .routers.google_auth import router as google_auth_router
+from .routers.ip import router as ip_router
 from .routers.stashes import router as stashes_router
 from .settings import settings
 
@@ -25,7 +26,6 @@ logger = logging.getLogger(Path(__file__).name)
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
-    app.state.banned_ips_cache = {}
     await ops.create_tables()
     await ops.db_conn_pool.open()
     yield
@@ -56,6 +56,7 @@ main_router = APIRouter(
 
 main_router.include_router(stashes_router)
 main_router.include_router(google_auth_router)
+main_router.include_router(ip_router)
 app.include_router(main_router)
 
 

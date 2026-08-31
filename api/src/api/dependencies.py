@@ -13,6 +13,8 @@ from .db.ops import get_db_conn
 
 logger = logging.getLogger(Path(__file__).name)
 
+banned_ips_cache: set[str] = set()
+
 
 async def get_ip_addr(request: Request, db_conn: DBConn) -> str | None:
     if forwarded_for := request.headers.get("x-forwarded-for"):
@@ -22,24 +24,20 @@ async def get_ip_addr(request: Request, db_conn: DBConn) -> str | None:
     if ip is None:
         return None
 
-    banned_ips: dict[str, bool] = request.app.state.banned_ips_cache  # pyright: ignore[reportAny]
+    should_reject = False
+    if ip in banned_ips_cache:
+        should_reject = True
 
-    if ip in banned_ips:
-        if banned_ips[ip] == True:  # banned
-            raise HTTPException(
-                status_code=HTTP_403_FORBIDDEN,
-                detail="Your IP address has been banned.",
-            )
-    else:
-        active_ban = await query.get_active_i_p_ban(db_conn, ip_address=ip)
-        if active_ban:
-            banned_ips[ip] = True
-            raise HTTPException(
-                status_code=HTTP_403_FORBIDDEN,
-                detail="Your IP address has been banned.",
-            )
-        else:
-            banned_ips[ip] = False  # not banned (yet)
+    active_ban = await query.get_active_i_p_ban(db_conn, ip_address=ip)
+    if active_ban:
+        banned_ips_cache.add(ip)
+        should_reject = True
+
+    if should_reject:
+        raise HTTPException(
+            status_code=HTTP_403_FORBIDDEN,
+            detail="Your IP address has been banned.",
+        )
 
     return ip
 

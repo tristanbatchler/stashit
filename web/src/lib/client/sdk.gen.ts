@@ -2,7 +2,7 @@
 
 import { type Client, type ClientMeta, formDataBodySerializer, type Options as Options2, type RequestResult, type TDataShape } from './client';
 import { client } from './client.gen';
-import type { AddBinaryStashApiV1StashesFilePostData, AddBinaryStashApiV1StashesFilePostErrors, AddBinaryStashApiV1StashesFilePostResponses, AddTextStashApiV1StashesTextPostData, AddTextStashApiV1StashesTextPostErrors, AddTextStashApiV1StashesTextPostResponses, GetConfigApiV1ConfigMaxUploadBytesGetData, GetConfigApiV1ConfigMaxUploadBytesGetErrors, GetConfigApiV1ConfigMaxUploadBytesGetResponses, GetFileStashApiV1StashesFileSlugGetData, GetFileStashApiV1StashesFileSlugGetErrors, GetFileStashApiV1StashesFileSlugGetResponses, GetMeApiV1AuthGoogleMeGetData, GetMeApiV1AuthGoogleMeGetErrors, GetMeApiV1AuthGoogleMeGetResponses, GetStashMetadataApiV1StashesMetadataSlugGetData, GetStashMetadataApiV1StashesMetadataSlugGetErrors, GetStashMetadataApiV1StashesMetadataSlugGetResponses, GetStashViewsApiV1StashesViewsSlugGetData, GetStashViewsApiV1StashesViewsSlugGetErrors, GetStashViewsApiV1StashesViewsSlugGetResponses, GetTextStashApiV1StashesTextSlugGetData, GetTextStashApiV1StashesTextSlugGetErrors, GetTextStashApiV1StashesTextSlugGetResponses, GoogleCallbackApiV1AuthGoogleCallbackGetData, GoogleCallbackApiV1AuthGoogleCallbackGetErrors, GoogleLoginApiV1AuthGoogleGetData, GoogleLoginApiV1AuthGoogleGetErrors, GoogleLoginApiV1AuthGoogleGetResponses, GoogleLogoutApiV1AuthGoogleLogoutPostData, GoogleLogoutApiV1AuthGoogleLogoutPostErrors, GoogleLogoutApiV1AuthGoogleLogoutPostResponses, ListStashesApiV1StashesGetData, ListStashesApiV1StashesGetErrors, ListStashesApiV1StashesGetResponses, RevokeStashApiV1StashesSlugDeleteData, RevokeStashApiV1StashesSlugDeleteErrors, RevokeStashApiV1StashesSlugDeleteResponses, UnlockProtectedFileStashApiV1StashesFileSlugUnlockPostData, UnlockProtectedFileStashApiV1StashesFileSlugUnlockPostErrors, UnlockProtectedFileStashApiV1StashesFileSlugUnlockPostResponses, UnlockProtectedTextStashApiV1StashesTextSlugUnlockPostData, UnlockProtectedTextStashApiV1StashesTextSlugUnlockPostErrors, UnlockProtectedTextStashApiV1StashesTextSlugUnlockPostResponses } from './types.gen';
+import type { AddBinaryStashApiV1StashesFilePostData, AddBinaryStashApiV1StashesFilePostErrors, AddBinaryStashApiV1StashesFilePostResponses, AddIpBanApiV1IpIpAddrBanPostData, AddIpBanApiV1IpIpAddrBanPostErrors, AddIpBanApiV1IpIpAddrBanPostResponses, AddTextStashApiV1StashesTextPostData, AddTextStashApiV1StashesTextPostErrors, AddTextStashApiV1StashesTextPostResponses, GetConfigApiV1ConfigMaxUploadBytesGetData, GetConfigApiV1ConfigMaxUploadBytesGetErrors, GetConfigApiV1ConfigMaxUploadBytesGetResponses, GetFileStashApiV1StashesFileSlugGetData, GetFileStashApiV1StashesFileSlugGetErrors, GetFileStashApiV1StashesFileSlugGetResponses, GetMeApiV1AuthGoogleMeGetData, GetMeApiV1AuthGoogleMeGetErrors, GetMeApiV1AuthGoogleMeGetResponses, GetStashMetadataApiV1StashesMetadataSlugGetData, GetStashMetadataApiV1StashesMetadataSlugGetErrors, GetStashMetadataApiV1StashesMetadataSlugGetResponses, GetStashViewsApiV1StashesViewsSlugGetData, GetStashViewsApiV1StashesViewsSlugGetErrors, GetStashViewsApiV1StashesViewsSlugGetResponses, GetTextStashApiV1StashesTextSlugGetData, GetTextStashApiV1StashesTextSlugGetErrors, GetTextStashApiV1StashesTextSlugGetResponses, GoogleCallbackApiV1AuthGoogleCallbackGetData, GoogleCallbackApiV1AuthGoogleCallbackGetErrors, GoogleLoginApiV1AuthGoogleGetData, GoogleLoginApiV1AuthGoogleGetErrors, GoogleLoginApiV1AuthGoogleGetResponses, GoogleLogoutApiV1AuthGoogleLogoutPostData, GoogleLogoutApiV1AuthGoogleLogoutPostErrors, GoogleLogoutApiV1AuthGoogleLogoutPostResponses, ListIpActivityApiV1IpIpAddrActivityGetData, ListIpActivityApiV1IpIpAddrActivityGetErrors, ListIpActivityApiV1IpIpAddrActivityGetResponses, ListStashesApiV1StashesGetData, ListStashesApiV1StashesGetErrors, ListStashesApiV1StashesGetResponses, RevokeBanApiV1IpBansBanIdDeleteData, RevokeBanApiV1IpBansBanIdDeleteErrors, RevokeBanApiV1IpBansBanIdDeleteResponses, RevokeStashApiV1StashesSlugDeleteData, RevokeStashApiV1StashesSlugDeleteErrors, RevokeStashApiV1StashesSlugDeleteResponses, UnlockProtectedFileStashApiV1StashesFileSlugUnlockPostData, UnlockProtectedFileStashApiV1StashesFileSlugUnlockPostErrors, UnlockProtectedFileStashApiV1StashesFileSlugUnlockPostResponses, UnlockProtectedTextStashApiV1StashesTextSlugUnlockPostData, UnlockProtectedTextStashApiV1StashesTextSlugUnlockPostErrors, UnlockProtectedTextStashApiV1StashesTextSlugUnlockPostResponses } from './types.gen';
 
 export type Options<TData extends TDataShape = TDataShape, ThrowOnError extends boolean = boolean, TResponse = unknown> = Options2<TData, ThrowOnError, TResponse> & {
     /**
@@ -116,6 +116,35 @@ export const getMeApiV1AuthGoogleMeGet = <ThrowOnError extends boolean = false>(
  * Google Logout
  */
 export const googleLogoutApiV1AuthGoogleLogoutPost = <ThrowOnError extends boolean = false>(options?: Options<GoogleLogoutApiV1AuthGoogleLogoutPostData, ThrowOnError>): RequestResult<GoogleLogoutApiV1AuthGoogleLogoutPostResponses, GoogleLogoutApiV1AuthGoogleLogoutPostErrors, ThrowOnError> => (options?.client ?? client).post<GoogleLogoutApiV1AuthGoogleLogoutPostResponses, GoogleLogoutApiV1AuthGoogleLogoutPostErrors, ThrowOnError>({ url: '/api/v1/auth/google/logout', ...options });
+
+/**
+ * List Ip Activity
+ */
+export const listIpActivityApiV1IpIpAddrActivityGet = <ThrowOnError extends boolean = false>(options: Options<ListIpActivityApiV1IpIpAddrActivityGetData, ThrowOnError>): RequestResult<ListIpActivityApiV1IpIpAddrActivityGetResponses, ListIpActivityApiV1IpIpAddrActivityGetErrors, ThrowOnError> => (options.client ?? client).get<ListIpActivityApiV1IpIpAddrActivityGetResponses, ListIpActivityApiV1IpIpAddrActivityGetErrors, ThrowOnError>({ url: '/api/v1/ip{ip_addr}/activity', ...options });
+
+/**
+ * Add Ip Ban
+ */
+export const addIpBanApiV1IpIpAddrBanPost = <ThrowOnError extends boolean = false>(options: Options<AddIpBanApiV1IpIpAddrBanPostData, ThrowOnError>): RequestResult<AddIpBanApiV1IpIpAddrBanPostResponses, AddIpBanApiV1IpIpAddrBanPostErrors, ThrowOnError> => (options.client ?? client).post<AddIpBanApiV1IpIpAddrBanPostResponses, AddIpBanApiV1IpIpAddrBanPostErrors, ThrowOnError>({
+    url: '/api/v1/ip{ip_addr}/ban',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
+
+/**
+ * Revoke Ban
+ */
+export const revokeBanApiV1IpBansBanIdDelete = <ThrowOnError extends boolean = false>(options: Options<RevokeBanApiV1IpBansBanIdDeleteData, ThrowOnError>): RequestResult<RevokeBanApiV1IpBansBanIdDeleteResponses, RevokeBanApiV1IpBansBanIdDeleteErrors, ThrowOnError> => (options.client ?? client).delete<RevokeBanApiV1IpBansBanIdDeleteResponses, RevokeBanApiV1IpBansBanIdDeleteErrors, ThrowOnError>({
+    url: '/api/v1/ip/bans/{ban_id}',
+    ...options,
+    headers: {
+        'Content-Type': 'application/json',
+        ...options.headers
+    }
+});
 
 /**
  * Get Config

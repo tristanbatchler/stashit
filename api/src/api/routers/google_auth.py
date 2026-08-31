@@ -27,8 +27,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth/google")
 
-# GOOGLE_CALLBACK_ROUTE_ID = "google_callback"
-
 
 @router.get(
     "",

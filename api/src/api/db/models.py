@@ -40,7 +40,7 @@ class IpBan(pydantic.BaseModel):
     added_by_user_id: int
     revoked_at: datetime.datetime | None
     revoked_by_user_id: int | None
-    revokation_reason: str | None
+    revocation_reason: str | None
 
 
 class OauthState(pydantic.BaseModel):

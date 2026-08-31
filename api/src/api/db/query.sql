@@ -369,7 +369,7 @@ SELECT
     added_by_user_id,
     revoked_at,
     revoked_by_user_id,
-    revokation_reason
+    revocation_reason
 FROM ip_bans
 WHERE id = $1;
 
@@ -384,7 +384,7 @@ SELECT
     added_by_user_id,
     revoked_at,
     revoked_by_user_id,
-    revokation_reason
+    revocation_reason
 FROM ip_bans
 WHERE ip_address = $1
   AND revoked_at IS NULL
@@ -403,7 +403,7 @@ SELECT
     added_by_user_id,
     revoked_at,
     revoked_by_user_id,
-    revokation_reason
+    revocation_reason
 FROM ip_bans
 WHERE ip_address = $1
 ORDER BY added DESC, id DESC;
@@ -419,19 +419,109 @@ SELECT
     added_by_user_id,
     revoked_at,
     revoked_by_user_id,
-    revokation_reason
+    revocation_reason
 FROM ip_bans
 WHERE revoked_at IS NULL
   AND (expires IS NULL OR expires > CURRENT_TIMESTAMP)
 ORDER BY added DESC, id DESC;
 
 
--- name: RevokeIPBan :exec
+-- name: RevokeIPBan :one
 UPDATE ip_bans
 SET
     revoked_at = CURRENT_TIMESTAMP,
-    revoked_by_user_id = $2
+    revoked_by_user_id = $2,
+    revocation_reason = $3
 WHERE id = $1
-  AND revoked_at IS NULL;
+    AND revoked_at IS NULL
+RETURNING ip_address;
 
 
+-- name: ListIPActivity :many
+SELECT
+    event_at,
+    event_type,
+    stash_id,
+    slug,
+    details
+FROM (
+    SELECT
+        s.added AS event_at,
+        'stash_created'::TEXT AS event_type,
+        s.id AS stash_id,
+        s.slug,
+        NULL::TEXT AS details
+    FROM stashes s
+    WHERE s.added_by_ip = @ip_address
+
+    UNION ALL
+
+    SELECT
+        v.viewed_at AS event_at,
+        CASE
+            WHEN s.is_binary THEN 'stash_downloaded'
+            ELSE 'stash_viewed'
+        END AS event_type,
+        s.id AS stash_id,
+        s.slug,
+        NULL::TEXT AS details
+    FROM stash_views v
+    INNER JOIN stashes s
+        ON s.id = v.stash_id
+    WHERE v.ip_address = @ip_address
+
+    UNION ALL
+
+    SELECT
+        p.attempted_at AS event_at,
+        CASE
+            WHEN p.successful THEN 'password_success'
+            ELSE 'password_failure'
+        END AS event_type,
+        s.id AS stash_id,
+        s.slug,
+        NULL::TEXT AS details
+    FROM stash_password_attempts p
+    INNER JOIN stashes s
+        ON s.id = p.stash_id
+    WHERE p.ip_address = @ip_address
+
+    UNION ALL
+
+    SELECT
+        b.added AS event_at,
+        'ip_banned'::TEXT AS event_type,
+        NULL::BIGINT AS stash_id,
+        NULL::TEXT AS slug,
+        b.reason AS details
+    FROM ip_bans b
+    WHERE b.ip_address = @ip_address
+
+    UNION ALL
+
+    SELECT
+        b.revoked_at AS event_at,
+        'ip_ban_revoked'::TEXT AS event_type,
+        NULL::BIGINT AS stash_id,
+        NULL::TEXT AS slug,
+        b.revokation_reason AS details
+    FROM ip_bans b
+    WHERE b.ip_address = @ip_address
+      AND b.revoked_at IS NOT NULL
+
+    UNION ALL
+
+    SELECT
+        r.revoked_at AS event_at,
+        'stash_revoked'::TEXT AS event_type,
+        s.id AS stash_id,
+        s.slug,
+        NULL::TEXT AS details
+    FROM stashes_revocations r
+    INNER JOIN stashes s
+        ON s.id = r.stash_id
+    WHERE s.added_by_ip = @ip_address
+) events
+ORDER BY event_at DESC
+LIMIT sqlc.arg('limit')::int
+OFFSET sqlc.arg('offset')::int;

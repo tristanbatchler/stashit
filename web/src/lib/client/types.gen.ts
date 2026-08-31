@@ -19,6 +19,20 @@ export type BodyAddBinaryStashApiV1StashesFilePost = {
 };
 
 /**
+ * Body_add_ip_ban_api_v1_ip_ip_addr__ban_post
+ */
+export type BodyAddIpBanApiV1IpIpAddrBanPost = {
+    /**
+     * Expires
+     */
+    expires: string | null;
+    /**
+     * Reason
+     */
+    reason: string | null;
+};
+
+/**
  * Body_add_text_stash_api_v1_stashes_text_post
  */
 export type BodyAddTextStashApiV1StashesTextPost = {
@@ -96,6 +110,74 @@ export type HttpValidationError = {
      * Detail
      */
     detail?: Array<ValidationError>;
+};
+
+/**
+ * IpBan
+ */
+export type IpBan = {
+    /**
+     * Id
+     */
+    id_: number;
+    /**
+     * Ip Address
+     */
+    ip_address: string;
+    /**
+     * Added
+     */
+    added: string;
+    /**
+     * Expires
+     */
+    expires: string | null;
+    /**
+     * Reason
+     */
+    reason: string | null;
+    /**
+     * Added By User Id
+     */
+    added_by_user_id: number;
+    /**
+     * Revoked At
+     */
+    revoked_at: string | null;
+    /**
+     * Revoked By User Id
+     */
+    revoked_by_user_id: number | null;
+    /**
+     * Revocation Reason
+     */
+    revocation_reason: string | null;
+};
+
+/**
+ * ListIPActivityRow
+ */
+export type ListIpActivityRow = {
+    /**
+     * Event At
+     */
+    event_at: string;
+    /**
+     * Event Type
+     */
+    event_type: string;
+    /**
+     * Stash Id
+     */
+    stash_id: number;
+    /**
+     * Slug
+     */
+    slug: string;
+    /**
+     * Details
+     */
+    details: string | null;
 };
 
 /**
@@ -866,6 +948,134 @@ export type GoogleLogoutApiV1AuthGoogleLogoutPostResponses = {
 };
 
 export type GoogleLogoutApiV1AuthGoogleLogoutPostResponse = GoogleLogoutApiV1AuthGoogleLogoutPostResponses[keyof GoogleLogoutApiV1AuthGoogleLogoutPostResponses];
+
+export type ListIpActivityApiV1IpIpAddrActivityGetData = {
+    body?: never;
+    path: {
+        /**
+         * Ip Addr
+         */
+        ip_addr: string;
+    };
+    query: {
+        /**
+         * Page
+         */
+        page: number;
+        /**
+         * Take
+         */
+        take: number;
+    };
+    url: '/api/v1/ip{ip_addr}/activity';
+};
+
+export type ListIpActivityApiV1IpIpAddrActivityGetErrors = {
+    /**
+     * Forbidden
+     */
+    403: Message;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+    /**
+     * Internal Server Error
+     */
+    500: Message;
+};
+
+export type ListIpActivityApiV1IpIpAddrActivityGetError = ListIpActivityApiV1IpIpAddrActivityGetErrors[keyof ListIpActivityApiV1IpIpAddrActivityGetErrors];
+
+export type ListIpActivityApiV1IpIpAddrActivityGetResponses = {
+    /**
+     * Response List Ip Activity Api V1 Ip Ip Addr  Activity Get
+     *
+     * Successful Response
+     */
+    200: Array<ListIpActivityRow>;
+};
+
+export type ListIpActivityApiV1IpIpAddrActivityGetResponse = ListIpActivityApiV1IpIpAddrActivityGetResponses[keyof ListIpActivityApiV1IpIpAddrActivityGetResponses];
+
+export type AddIpBanApiV1IpIpAddrBanPostData = {
+    body: BodyAddIpBanApiV1IpIpAddrBanPost;
+    path: {
+        /**
+         * Ip Addr
+         */
+        ip_addr: string;
+    };
+    query?: never;
+    url: '/api/v1/ip{ip_addr}/ban';
+};
+
+export type AddIpBanApiV1IpIpAddrBanPostErrors = {
+    /**
+     * Forbidden
+     */
+    403: Message;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+    /**
+     * Internal Server Error
+     */
+    500: Message;
+};
+
+export type AddIpBanApiV1IpIpAddrBanPostError = AddIpBanApiV1IpIpAddrBanPostErrors[keyof AddIpBanApiV1IpIpAddrBanPostErrors];
+
+export type AddIpBanApiV1IpIpAddrBanPostResponses = {
+    /**
+     * Successful Response
+     */
+    201: IpBan;
+};
+
+export type AddIpBanApiV1IpIpAddrBanPostResponse = AddIpBanApiV1IpIpAddrBanPostResponses[keyof AddIpBanApiV1IpIpAddrBanPostResponses];
+
+export type RevokeBanApiV1IpBansBanIdDeleteData = {
+    /**
+     * Reason
+     */
+    body: string | null;
+    path: {
+        /**
+         * Ban Id
+         */
+        ban_id: number;
+    };
+    query?: never;
+    url: '/api/v1/ip/bans/{ban_id}';
+};
+
+export type RevokeBanApiV1IpBansBanIdDeleteErrors = {
+    /**
+     * Forbidden
+     */
+    403: Message;
+    /**
+     * Validation Error
+     */
+    422: HttpValidationError;
+    /**
+     * Internal Server Error
+     */
+    500: Message;
+};
+
+export type RevokeBanApiV1IpBansBanIdDeleteError = RevokeBanApiV1IpBansBanIdDeleteErrors[keyof RevokeBanApiV1IpBansBanIdDeleteErrors];
+
+export type RevokeBanApiV1IpBansBanIdDeleteResponses = {
+    /**
+     * Successful Response
+     */
+    204: void;
+};
+
+export type RevokeBanApiV1IpBansBanIdDeleteResponse = RevokeBanApiV1IpBansBanIdDeleteResponses[keyof RevokeBanApiV1IpBansBanIdDeleteResponses];
 
 export type GetConfigApiV1ConfigMaxUploadBytesGetData = {
     body?: never;
