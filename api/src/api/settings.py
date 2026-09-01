@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     ADMIN_EMAILS: set[str] = Field(default_factory=set)
     PASSWORD_LOCKOUT_EXPIRY_MINUTES: int = Field(default=15)
     PASSWORD_LOCKOUT_ATTEMPTS_THRESHOLD: int = Field(default=5)
+    APP_UPLOADS_DIRECTORY: Path = Field(default=...)
 
     model_config: ClassVar[SettingsConfigDict] = SettingsConfigDict(
         env_file=app_directory / "settings.env",

@@ -265,9 +265,7 @@ async def add_binary_stash(
         )
 
     try:
-        app_directory = Path(__file__).parent.parent
-        uploads_dir = app_directory / "uploads"
-        uploads_dir.mkdir(exist_ok=True)
+        uploads_dir = settings.APP_UPLOADS_DIRECTORY
 
         if file.filename is None:
             raise HTTPException(

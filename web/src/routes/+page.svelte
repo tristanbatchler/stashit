@@ -71,7 +71,7 @@
 									</span>
 								</td>
 								{#if data.user?.is_admin}
-									<td><code>{stash.added_by_ip}</code></td>
+									<td><code><a href={resolve("/ip/[ip_addr]", {ip_addr: stash.added_by_ip})}>{stash.added_by_ip}</a></code></td>
 									<td>
 										{#if stash.revoked_at}
 											<span data-tooltip={formatDateFull(stash.revoked_at)}>

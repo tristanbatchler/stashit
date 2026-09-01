@@ -26,6 +26,7 @@ logger = logging.getLogger(Path(__file__).name)
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
+    settings.APP_UPLOADS_DIRECTORY.mkdir(parents=True, exist_ok=True)
     await ops.create_tables()
     await ops.db_conn_pool.open()
     yield

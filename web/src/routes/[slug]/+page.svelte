@@ -170,7 +170,15 @@
 				</div>
 				<div>
 					<small>Created By IP</small>
-					<div><code>{data.metadata.added_by_ip ?? 'N/A'}</code></div>
+					 <div>
+						<code>
+							{#if data.metadata.added_by_ip}
+								<a href={resolve("/ip/[ip_addr]", {ip_addr: data.metadata.added_by_ip})}>{data.metadata.added_by_ip}</a>
+							{:else}
+								N/A
+							{/if}
+					 	</code>
+					</div>
 				</div>
 				<div>
 					<small>Expires</small>
