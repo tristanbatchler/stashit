@@ -71,28 +71,38 @@ https://stash.example.com/api/   -> http://api:8000
 For example, the important part of an nginx configuration looks roughly like:
 
 ```nginx
-server {
-    server_name stash.example.com;
+location /api/ {
+    proxy_pass http://127.0.0.1:8000;
 
-    location /api/ {
-        proxy_pass http://127.0.0.1:8000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
+    # Identity Headers using Cloudflare shortcuts
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $http_cf_connecting_ip;
+    proxy_set_header X-Forwarded-For $http_cf_connecting_ip;
+    proxy_set_header X-Forwarded-Proto $scheme;
 
-    location / {
-        proxy_pass http://127.0.0.1:3000;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-    }
+    # Timeouts for API stability
+    proxy_connect_timeout 60s;
+    proxy_read_timeout 60s;
+}
+
+# Frontend Web App (Vite server running on port 3000)
+location / {
+    proxy_pass http://127.0.0.1:3001;
+
+    # Identity Headers using Cloudflare shortcuts
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $http_cf_connecting_ip;
+    proxy_set_header X-Forwarded-For $http_cf_connecting_ip;
+    proxy_set_header X-Forwarded-Proto $scheme;
+
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_cache_bypass $http_upgrade;
 }
 ```
 
-The exact nginx configuration will depend on where nginx is running. If nginx is itself running on the Docker host, the published ports above can be used. If nginx is running as another Docker container, it should instead proxy to the `web` and `api` Compose services over a shared Docker network.
+The exact nginx configuration will depend on where nginx is running. My global nginx config file is in `nginx.conf` in the root of this repo.
 
 The important distinction is that `/api/` must reach FastAPI directly, while all other paths must reach SvelteKit.
 
