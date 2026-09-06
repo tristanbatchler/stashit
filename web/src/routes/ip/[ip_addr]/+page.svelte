@@ -129,7 +129,7 @@
 
 		<nav aria-label="Activity pagination">
 			{#if hasPreviousPage}
-				<a href={resolve(`/ip/${data.ipAddress}?page=${data.page - 1}&take=${data.take}`)}>
+				<a href={resolve('/ip/${data.ipAddress}', {"page": `${data.page - 1}`, "take": `${data.take}`})}>
 					Previous
 				</a>
 			{/if}
@@ -137,7 +137,7 @@
 			<span>Page {data.page}</span>
 
 			{#if hasNextPage}
-				<a href={resolve(`/ip/${data.ipAddress}?page=${data.page + 1}&take=${data.take}`)}>
+				<a href={resolve('/ip/${data.ipAddress}', {"page": `${data.page + 1}`, "take": `${data.take}`})}>
 					Next
 				</a>
 			{/if}

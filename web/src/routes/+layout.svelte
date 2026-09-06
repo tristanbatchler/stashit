@@ -3,6 +3,8 @@
 	import { resolve } from '$app/paths';
 	import favicon from '$lib/assets/favicon.svg';
 	import { browser } from '$app/environment';
+	import { googleLogoutApiV1AuthGoogleLogoutPost } from '$lib/client/sdk.gen.js';
+	import { error, redirect } from '@sveltejs/kit';
 
 	let { children, data } = $props();
 
@@ -35,8 +37,11 @@
 	});
 
 	async function logout() {
-		await fetch(resolve('/auth/google/logout'), { method: 'POST' });
-		location.href = resolve('/');
+		const {error: err} = await googleLogoutApiV1AuthGoogleLogoutPost();
+		if (err) {
+			error(500, err.detail);
+		}
+		throw redirect(303, resolve('/', {}));
 	}
 </script>
 
@@ -55,7 +60,7 @@
 		<nav>
 			<ul>
 				<li>
-					<a href={resolve('/')} class="brand-logo">
+					<a href={resolve('/', {})} class="brand-logo">
 						<strong>Stash It!</strong>
 					</a>
 				</li>
@@ -63,7 +68,7 @@
 
 			<ul>
 				<li>
-					<a href={resolve('/stashes/new')} class="nav-link">New stash</a>
+					<a href={resolve('/stashes/new', {})} class="nav-link">New stash</a>
 				</li>
 
 				{#if data.user}
@@ -78,7 +83,7 @@
 					</li>
 				{:else}
 					<li>
-						<a href={resolve('/auth/google')} role="button" class="nav-btn">Log in</a>
+						<a href={resolve('/auth/google', {})} role="button" class="nav-btn">Log in</a>
 					</li>
 				{/if}
 			</ul>

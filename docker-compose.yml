@@ -1,0 +1,36 @@
+services:
+  api:
+    build:
+      context: ./api
+    env_file:
+      - ./.env
+    environment:
+      APP_UPLOADS_DIRECTORY: /data/uploads
+    volumes:
+      - ./.env:/.env:ro
+      - ./.env:/app/.env:ro
+      - uploads:/data/uploads
+    ports:
+      - "8000:8000"
+
+  web:
+    build:
+      context: .
+      dockerfile: web/Dockerfile
+      secrets:
+        - settings
+    env_file:
+      - ./.env
+    environment:
+      API_BASE_URL: http://api:8000
+    depends_on:
+      - api
+    ports:
+      - "3000:3000"
+
+volumes:
+  uploads:
+
+secrets:
+  settings:
+    file: ./.env

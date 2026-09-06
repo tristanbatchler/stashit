@@ -34,7 +34,7 @@ class Settings(BaseSettings):
     APP_UPLOADS_DIRECTORY: Path = Field(default=...)
 
     model_config: ClassVar[SettingsConfigDict] = SettingsConfigDict(
-        env_file=app_directory / "settings.env",
+        env_file=app_directory / ".env",
         extra="ignore",
         env_ignore_empty=True,
     )
@@ -51,11 +51,11 @@ for field_name, field_info in Settings.model_fields.items():
     example_lines.append(line)
 
 example_text = "\n".join(example_lines)
-example_settings_path = app_directory / "settings.example.env"
+example_settings_path = app_directory / ".example.env"
 _ = example_settings_path.write_text(example_text)
 
 # If the settings file doesn't exist, copy the example on there too
-settings_path = app_directory / "settings.env"
+settings_path = app_directory / ".env"
 if not settings_path.is_file():
     _ = settings_path.write_text(example_text)
     logger.fatal(

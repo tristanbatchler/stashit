@@ -14,5 +14,5 @@ export const POST: RequestHandler = async ({ cookies }) => {
 		path: '/'
 	});
 
-	throw redirect(303, resolve('/'));
+	throw redirect(303, resolve('/', {}));
 };

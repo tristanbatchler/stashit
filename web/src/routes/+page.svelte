@@ -37,7 +37,7 @@
 		<p class="error-msg">Error: {response.error?.detail || response.error}</p>
 	{:else}
 		{#if response.stashes.length === 0 && data.page > 1}
-			{goto(resolve('/'))}
+			{goto(resolve('/', {}))}
 		{:else}
 			<div class="overflow-auto">
 				<table>
@@ -105,13 +105,13 @@
 				<ul>
 					{#if data.page > 1}
 						<li>
-							<a href={resolve(`/?page=${data.page - 1}`)}>Previous</a>
+							<a href={resolve('/', {"page": `${data.page - 1}`})}>Previous</a>
 						</li>
 					{/if}
 					<li><span>Page {data.page}</span></li>
 					{#if response.hasNext}
 						<li>
-							<a href={resolve(`/?page=${data.page + 1}`)}>Next</a>
+							<a href={resolve('/', {"page": `${data.page + 1}`})}>Next</a>
 						</li>
 					{/if}
 				</ul>

@@ -8,14 +8,14 @@ I'm sure there are alternatives I can deploy with Docker, but I wanted to make m
 
 Firstly, make your configuration:
 
-```
-cp settings.example.env settings.env
+```sh
+cp .example.env .env
 # Now edit it however you like
 ```
 
 I like Mise, so that should be installed and configured on your shell. Then:
 
-```
+```sh
 mise trust
 mise install
 mise use -g watchexec@latest # installs the file watcher (you only need this once)
@@ -24,19 +24,107 @@ uv sync
 uv run fastapi dev # See http://localhost:8000/docs
 ```
 
-And for installing the front-end (SvelteKit app managed with `npm` (installed by Mise)):
+And for installing the front-end (SvelteKit app managed with `npm`, installed by Mise):
 
-```
+```sh
 cd web # (assuming you are back in the root directory)
 npm install
 npm run dev -- # See http://localhost:5173
 ```
 
+The development front-end expects the FastAPI server to be running on `http://localhost:8000`.
+
+## Docker
+
+The application can be run as a production deployment using Docker Compose. The Compose setup runs the FastAPI API and SvelteKit application as separate containers, with Postgres being provided separately.
+
+First, make sure `.env` exists and is configured:
+
+```sh
+cp .example.env .env
+# Edit .env with the required configuration
+```
+
+Then build and start the application:
+
+```sh
+docker compose up
+```
+
+This starts:
+
+* The FastAPI API on port `8000`
+* The SvelteKit application on port `3000`
+
+The API and web application communicate with each other over the Docker Compose network. The SvelteKit server therefore uses `http://api:8000` when running inside Docker, while browser requests use the same-origin `/api/...` paths.
+
+### nginx
+
+The Docker deployment is intended to sit behind nginx. nginx should proxy the two parts of 
+the application separately:
+
+```text
+https://stash.example.com/       -> http://web:3000
+https://stash.example.com/api/   -> http://api:8000
+```
+
+For example, the important part of an nginx configuration looks roughly like:
+
+```nginx
+server {
+    server_name stash.example.com;
+
+    location /api/ {
+        proxy_pass http://127.0.0.1:8000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+}
+```
+
+The exact nginx configuration will depend on where nginx is running. If nginx is itself running on the Docker host, the published ports above can be used. If nginx is running as another Docker container, it should instead proxy to the `web` and `api` Compose services over a shared Docker network.
+
+The important distinction is that `/api/` must reach FastAPI directly, while all other paths must reach SvelteKit.
+
+The SvelteKit container needs access to `.env` while the image is being built because it generates its TypeScript API client from the FastAPI OpenAPI schema. The Compose configuration supplies this as a build secret.
+
+### Production deployment
+
+To rebuild the application after making changes:
+
+```sh
+docker compose up --build
+```
+
+To run it in the background:
+
+```sh
+docker compose up --build -d
+```
+
+To stop it:
+
+```sh
+docker compose down
+```
+
+Uploaded files are stored in the Docker `uploads` volume, so they persist when the containers are recreated.
+
 ## Tooling
 
 While I'm coding I keep 
 
-```
+```sh
 mise watch default ::: sqlc ::: web-check ::: web-lint ::: web-gen-types
 ```
 

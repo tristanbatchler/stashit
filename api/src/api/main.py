@@ -1,3 +1,4 @@
+import json
 import logging
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
@@ -14,6 +15,7 @@ from starlette.status import (
     HTTP_500_INTERNAL_SERVER_ERROR,
 )
 
+from . import app_directory
 from .db import ops
 from .response_models import Message
 from .routers.google_auth import router as google_auth_router
@@ -25,16 +27,20 @@ logger = logging.getLogger(Path(__file__).name)
 
 
 @asynccontextmanager
-async def lifespan(_: FastAPI) -> AsyncGenerator[None]:
+async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
+    openapi_json_path = app_directory / "openapi.json"
+    _ = openapi_json_path.write_text(json.dumps(app.openapi()))
+    logger.info("Wrote %s", openapi_json_path)
+
     settings.APP_UPLOADS_DIRECTORY.mkdir(parents=True, exist_ok=True)
+
     await ops.create_tables()
     await ops.db_conn_pool.open()
     yield
     await ops.db_conn_pool.close()
 
 
-app: FastAPI = FastAPI(lifespan=lifespan)
-
+app: FastAPI = FastAPI(lifespan=lifespan, servers=[{"url": "/"}])
 
 # Allow the SvelteKit dev server (and built site) to call this API from the browser.
 app.add_middleware(
